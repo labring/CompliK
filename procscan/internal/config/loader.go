@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bearslyricattack/CompliK/procscan/pkg/models"
 	"gopkg.in/yaml.v3"
@@ -57,6 +58,10 @@ func (l *Loader) Load() (*models.Config, error) {
 	var config models.Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse configuration file: %w", err)
+	}
+
+	if config.Scanner.ScanInterval == 0 {
+		config.Scanner.ScanInterval = 100 * time.Second
 	}
 
 	// Update last hash
