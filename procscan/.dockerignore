@@ -1,0 +1,13 @@
+.git
+.github
+.idea
+.vscode
+
+bin
+dist
+tmp
+
+docs
+deploy
+
+README.md
