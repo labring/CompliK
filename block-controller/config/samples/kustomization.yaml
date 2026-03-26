@@ -1,4 +1,0 @@
-## Append samples of your project ##
-resources:
-- core_v1_blockrequest.yaml
-# +kubebuilder:scaffold:manifestskustomizesamples
