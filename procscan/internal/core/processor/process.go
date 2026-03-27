@@ -156,20 +156,18 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 	}
 
 	// Step 3: Identify container main process
-	var mainProcessPID int
+	mainProcessPID := pid
 	processStatus, err := ReadProcessStatus(p.ProcPath, pid)
 	if err != nil {
-		procLogger.WithError(err).Debug("Failed to read process status")
+		procLogger.WithError(err).Debug("Failed to read process status, using current PID")
 	} else {
 		if IsContainerMainProcess(processStatus) {
-			mainProcessPID = pid
 			procLogger.WithField("main_process_pid", mainProcessPID).Info("Detected malicious process is container main process")
 		} else {
 			// Trace back to find container main process
 			mainPID, err := FindContainerMainProcess(p.ProcPath, pid)
 			if err != nil {
 				procLogger.WithError(err).Debug("Failed to find container main process, continuing with current PID")
-				mainProcessPID = pid
 			} else {
 				mainProcessPID = mainPID
 				procLogger.WithFields(logrus.Fields{
@@ -182,23 +180,25 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 
 	// Step 4: Get container ID
 	containerID := p.getContainerIDFromPID(mainProcessPID)
-	if containerID == "" {
-		procLogger.Debug("Unable to determine container ID, skipping")
-		return nil, nil
-	}
 
-	// Step 5: Query container info on-demand (no cache)
-	podName, namespace, err := container.GetContainerInfo(containerID)
-	if err != nil {
-		procLogger.WithFields(logrus.Fields{
-			"containerID": containerID,
-			"error":       err.Error(),
-		}).Debug("Failed to get container info")
-		return nil, nil
+	// Step 5: Query container info on-demand when container metadata is available.
+	var podName, namespace string
+	if containerID == "" {
+		procLogger.Debug("Unable to determine container ID, continue alerting without container metadata")
+	} else {
+		podName, namespace, err = container.GetContainerInfo(containerID)
+		if err != nil {
+			procLogger.WithFields(logrus.Fields{
+				"containerID": containerID,
+				"error":       err.Error(),
+			}).Debug("Failed to get container info, continue alerting without pod/namespace")
+			podName = ""
+			namespace = ""
+		}
 	}
 
 	// Step 6: Check infrastructure whitelist
-	if p.isInfraWhitelisted(namespace, podName) {
+	if (namespace != "" || podName != "") && p.isInfraWhitelisted(namespace, podName) {
 		procLogger.WithFields(logrus.Fields{
 			"namespace": namespace,
 			"pod":       podName,
@@ -206,16 +206,24 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 		return nil, nil
 	}
 
-	// Step 7: Validate namespace prefix
-	if !strings.HasPrefix(namespace, "ns-") {
-		procLogger.WithField("namespace", namespace).Debug("Namespace does not match 'ns-' prefix, skipping")
-		return nil, nil
+	displayContainerID := containerID
+	if displayContainerID == "" {
+		displayContainerID = "unknown"
+	}
+	displayPodName := podName
+	if displayPodName == "" {
+		displayPodName = "unknown"
+	}
+	displayNamespace := namespace
+	if displayNamespace == "" {
+		displayNamespace = "unknown"
 	}
 
-	// Step 8: Confirmed as suspicious process
+	// Step 7: Confirmed as suspicious process
 	procLogger.WithFields(logrus.Fields{
-		"namespace":        namespace,
-		"pod":              podName,
+		"namespace":        displayNamespace,
+		"pod":              displayPodName,
+		"containerID":      displayContainerID,
 		"malicious_pid":    pid,
 		"main_process_pid": mainProcessPID,
 	}).Warn("Confirmed malicious process detected")
@@ -225,10 +233,10 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 		ProcessName: processName,
 		Command:     cmdline,
 		Timestamp:   time.Now().Format(time.RFC3339),
-		ContainerID: containerID,
+		ContainerID: displayContainerID,
 		Message:     message,
-		PodName:     podName,
-		Namespace:   namespace,
+		PodName:     displayPodName,
+		Namespace:   displayNamespace,
 	}, nil
 }
 
