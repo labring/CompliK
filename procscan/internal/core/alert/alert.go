@@ -167,8 +167,7 @@ func formatProcessSection(index int, info *models.ProcessInfo) string {
 		fmt.Sprintf("进程 PID：`%d`", info.PID),
 		fmt.Sprintf("进程名称：%s", quoteValue(displayValue(info.ProcessName, "未知"))),
 		fmt.Sprintf("进程命令行：%s", quoteValue(displayValue(info.Command, "未知"))),
-		"命中原因：",
-		translateReason(info.Message),
+		fmt.Sprintf("命中原因：%s", translateReason(info.Message)),
 		fmt.Sprintf("原始匹配信息：%s", quoteValue(displayValue(info.Message, "未返回"))),
 	}
 
