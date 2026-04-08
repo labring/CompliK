@@ -90,7 +90,9 @@ plugins:
         "host": "${POSTGRES_HOST}",
         "port": "${POSTGRES_PORT}",
         "username": "${POSTGRES_USERNAME}",
-        "password": "${POSTGRES_PASSWORD}"
+        "password": "${POSTGRES_PASSWORD}",
+        "adminBaseURL": "http://sealos-complik-admin:8080",
+        "adminTimeoutSecond": 10
       }
 
   - name: "Lark"

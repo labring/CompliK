@@ -1,6 +1,21 @@
+FROM golang:1.25 AS builder
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY . ./
+
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -mod=mod -trimpath -ldflags="-s -w" -o /out/service-complik ./cmd/complik
+
 FROM node:18-slim
 
-# 安装 Chromium 和依赖
+# Install Chromium runtime dependencies used by the browser collector.
 RUN apt-get update && apt-get install -y \
     chromium \
     ca-certificates \
@@ -42,18 +57,13 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-ARG TARGETARCH
-COPY bin/service-complik-$TARGETARCH /manager
+COPY --from=builder /out/service-complik /manager
 
-# 创建非 root 用户（ID 65532 对应 nonroot 用户）
 RUN groupadd -g 65532 nonroot && \
-    useradd -u 65532 -g 65532 -m -s /bin/bash nonroot
-
-# 设置权限
-RUN chmod +x /manager
+    useradd -u 65532 -g 65532 -m -s /bin/bash nonroot && \
+    chmod +x /manager
 
 EXPOSE 8428
 USER 65532:65532
 
-# 修正 ENTRYPOINT，移除固定的配置文件路径
-ENTRYPOINT [ "/manager" ]
+ENTRYPOINT ["/manager"]
