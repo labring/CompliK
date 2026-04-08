@@ -46,9 +46,17 @@ type LarkNotificationConfig struct {
 	Webhook string `yaml:"webhook"`
 }
 
+// AdminNotificationConfig defines admin API notification configuration
+type AdminNotificationConfig struct {
+	BaseURL string        `yaml:"base_url"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
 // NotificationsConfig defines notification configuration
 type NotificationsConfig struct {
-	Lark LarkNotificationConfig `yaml:"lark"`
+	Lark   LarkNotificationConfig  `yaml:"lark"`
+	Admin  AdminNotificationConfig `yaml:"admin"`
+	Region string                  `yaml:"region"`
 }
 
 // RuleSet defines a set of detection rules
