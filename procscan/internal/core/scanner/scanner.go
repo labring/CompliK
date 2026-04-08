@@ -293,6 +293,7 @@ func (s *Scanner) scanProcesses() error {
 	finalResults := make([]*alert.NamespaceScanResult, 0, len(resultsByNamespace))
 	for namespace, processInfos := range resultsByNamespace {
 		labelResult := s.handleGroupedActions(namespace, currentConfig)
+		s.reportProcscanViolations(processInfos, labelResult)
 		finalResults = append(finalResults, &alert.NamespaceScanResult{
 			Namespace:    namespace,
 			ProcessInfos: processInfos,

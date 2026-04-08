@@ -124,7 +124,8 @@ func (e *EnvLoader) loadActionsConfig(actions *models.ActionsConfig) error {
 // loadNotificationsConfig loads notifications configuration
 func (e *EnvLoader) loadNotificationsConfig(notifications *models.NotificationsConfig) error {
 	configMap := map[string]interface{}{
-		"notifications.lark.webhook": &notifications.Lark.Webhook,
+		"notifications.lark.webhook":   &notifications.Lark.Webhook,
+		"notifications.admin.base_url": &notifications.Admin.BaseURL,
 	}
 
 	return e.loadConfigMap(configMap)
@@ -225,7 +226,7 @@ func (e *EnvLoader) convertValue(field, value string) (interface{}, error) {
 // autoConvert performs automatic type conversion
 func (e *EnvLoader) autoConvert(field, value string) (interface{}, error) {
 	// Infer type based on field name
-	if strings.Contains(field, "interval") {
+	if strings.Contains(field, "interval") || strings.Contains(field, "timeout") {
 		duration, err := time.ParseDuration(value)
 		if err != nil {
 			return nil, fmt.Errorf("invalid duration format: %w", err)

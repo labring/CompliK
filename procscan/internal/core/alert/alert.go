@@ -78,9 +78,6 @@ func SendGlobalBatchAlert(results []*NamespaceScanResult, webhookURL string, reg
 		}
 	}
 
-	allElements = append(allElements, newHrElement())
-	allElements = append(allElements, newMarkdownElement("**处置建议**\n请优先核对进程命令行、镜像来源、启动时间与变更记录。\n如命名空间处置失败，请检查 ServiceAccount、RBAC、API Server 连通性以及标签配置是否合法。\n如容器元数据缺失，请结合节点日志、容器运行时日志和 Kubernetes 审计日志继续排查。"))
-
 	cardContent := map[string]any{
 		"config": map[string]any{"wide_screen_mode": true},
 		"header": map[string]any{
@@ -144,25 +141,17 @@ func formatSummarySection(region, nodeName string, totalProcesses, namespaceCoun
 		fmt.Sprintf("告警时间：%s", quoteValue(time.Now().Format(time.RFC3339))),
 		fmt.Sprintf("异常进程总数：`%d`", totalProcesses),
 		fmt.Sprintf("受影响命名空间数：`%d`", namespaceCount),
-		"说明：以下内容按命名空间和异常进程逐项列出，尽量展示本轮扫描已获取到的全部关键信息。",
 	}
 	return strings.Join(lines, "\n")
 }
 
 func formatNamespaceSection(index int, result *NamespaceScanResult) string {
 	namespace := displayValue(result.Namespace, "未知")
-	rawStatus := displayValue(result.LabelResult, "未返回")
 
 	lines := []string{
 		fmt.Sprintf("**命名空间分组 %d**", index),
 		fmt.Sprintf("命名空间：%s", quoteValue(namespace)),
 		fmt.Sprintf("异常进程数量：`%d`", len(result.ProcessInfos)),
-		fmt.Sprintf("命名空间处置结果：%s", getStatusText(result.LabelResult)),
-		fmt.Sprintf("处置返回详情：%s", quoteValue(rawStatus)),
-	}
-
-	for _, analysis := range buildLabelAnalysis(namespace, result.LabelResult) {
-		lines = append(lines, fmt.Sprintf("可能的错误分析：%s", analysis))
 	}
 
 	return strings.Join(lines, "\n")
@@ -180,10 +169,6 @@ func formatProcessSection(index int, info *models.ProcessInfo) string {
 		fmt.Sprintf("进程命令行：%s", quoteValue(displayValue(info.Command, "未知"))),
 		fmt.Sprintf("命中原因：%s", translateReason(info.Message)),
 		fmt.Sprintf("原始匹配信息：%s", quoteValue(displayValue(info.Message, "未返回"))),
-	}
-
-	for _, analysis := range buildProcessAnalysis(info) {
-		lines = append(lines, fmt.Sprintf("可能的错误分析：%s", analysis))
 	}
 
 	return strings.Join(lines, "\n")
