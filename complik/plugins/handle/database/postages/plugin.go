@@ -56,22 +56,26 @@ type DatabasePlugin struct {
 	databaseConfig DatabaseConfig
 }
 type DatabaseConfig struct {
-	Region       string `json:"region"`
-	Host         string `json:"host"`
-	Port         string `json:"port"`
-	Username     string `json:"username"`
-	Password     string `json:"password"`
-	DatabaseName string `json:"databaseName"`
-	TableName    string `json:"tableName"`
-	Charset      string `json:"charset"`
+	Region             string `json:"region"`
+	Host               string `json:"host"`
+	Port               string `json:"port"`
+	Username           string `json:"username"`
+	Password           string `json:"password"`
+	DatabaseName       string `json:"databaseName"`
+	TableName          string `json:"tableName"`
+	Charset            string `json:"charset"`
+	AdminBaseURL       string `json:"adminBaseURL"`
+	AdminTimeoutSecond int    `json:"adminTimeoutSecond"`
 }
 
 func (p *DatabasePlugin) getDefaultConfig() DatabaseConfig {
 	return DatabaseConfig{
-		DatabaseName: "complik",
-		Charset:      "utf8mb4",
-		TableName:    "detectorRecord",
-		Region:       "UNKNOWN",
+		DatabaseName:       "complik",
+		Charset:            "utf8mb4",
+		TableName:          "detectorRecord",
+		Region:             "UNKNOWN",
+		AdminBaseURL:       defaultAdminBaseURL,
+		AdminTimeoutSecond: int(defaultAdminTimeout / time.Second),
 	}
 }
 
@@ -131,13 +135,24 @@ func (p *DatabasePlugin) loadConfig(setting string) error {
 	if configFromJSON.TableName != "" {
 		p.databaseConfig.TableName = configFromJSON.TableName
 	}
+	if configFromJSON.AdminBaseURL != "" {
+		if adminBaseURL, err := config.GetSecureValue(configFromJSON.AdminBaseURL); err == nil {
+			p.databaseConfig.AdminBaseURL = adminBaseURL
+		} else {
+			p.databaseConfig.AdminBaseURL = configFromJSON.AdminBaseURL
+		}
+	}
+	if configFromJSON.AdminTimeoutSecond > 0 {
+		p.databaseConfig.AdminTimeoutSecond = configFromJSON.AdminTimeoutSecond
+	}
 
 	p.log.Info("Database configuration loaded", logger.Fields{
-		"host":     p.databaseConfig.Host,
-		"port":     p.databaseConfig.Port,
-		"database": p.databaseConfig.DatabaseName,
-		"table":    p.databaseConfig.TableName,
-		"region":   p.databaseConfig.Region,
+		"host":      p.databaseConfig.Host,
+		"port":      p.databaseConfig.Port,
+		"database":  p.databaseConfig.DatabaseName,
+		"table":     p.databaseConfig.TableName,
+		"region":    p.databaseConfig.Region,
+		"admin_url": p.databaseConfig.AdminBaseURL,
 	})
 
 	return nil
@@ -247,6 +262,20 @@ func (p *DatabasePlugin) Start(
 					p.log.Debug("Result saved successfully", logger.Fields{
 						"host": result.Host,
 					})
+					if result.IsIllegal {
+						if err := p.reportViolation(result); err != nil {
+							p.log.Error("Failed to report violation to admin", logger.Fields{
+								"error":     err.Error(),
+								"host":      result.Host,
+								"namespace": result.Namespace,
+							})
+						} else {
+							p.log.Debug("Violation reported to admin successfully", logger.Fields{
+								"host":      result.Host,
+								"namespace": result.Namespace,
+							})
+						}
+					}
 				}
 			case <-ctx.Done():
 				p.log.Info("Database plugin stopping")

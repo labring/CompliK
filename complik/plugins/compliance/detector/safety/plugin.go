@@ -122,7 +122,6 @@ func (p *SafetyPlugin) loadConfig(setting string) error {
 	if safetyConfig.MaxWorkers > 0 {
 		p.safetyConfig.MaxWorkers = safetyConfig.MaxWorkers
 	}
-
 	p.log.Info("Safety detector configuration loaded", logger.Fields{
 		"api_base":    p.safetyConfig.APIBase,
 		"api_path":    p.safetyConfig.APIPath,
@@ -216,7 +215,6 @@ func (p *SafetyPlugin) Start(
 					"host":      res.Host,
 					"is_empty":  res.IsEmpty,
 				})
-
 				startTime := time.Now()
 				result, err := p.safetyJudge(ctx, res)
 				duration := time.Since(startTime)
