@@ -45,10 +45,17 @@ type LarkNotificationConfig struct {
 	Webhook string `yaml:"webhook"`
 }
 
+// AdminNotificationConfig contains configuration for the admin API notification channel.
+type AdminNotificationConfig struct {
+	BaseURL string        `yaml:"base_url"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
 // NotificationsConfig aggregates all notification channels
 type NotificationsConfig struct {
-	Lark   LarkNotificationConfig `yaml:"lark"`
-	Region string                 `yaml:"region"`
+	Lark   LarkNotificationConfig  `yaml:"lark"`
+	Admin  AdminNotificationConfig `yaml:"admin"`
+	Region string                  `yaml:"region"`
 }
 
 // MetricsConfig contains configuration for Prometheus metrics
