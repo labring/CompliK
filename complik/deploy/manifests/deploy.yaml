@@ -65,8 +65,8 @@ data:
         enabled: true
         settings: |
           {
-            "apiKey": "sk-1sxAT9tTxxUCiBobRJSOaYC4BFPKLdyhypXg7o9eJsmaDFhU",
-            "apiBase": "https://aiproxy.usw.sealos.io/v1",
+            "apiKey": "",
+            "apiBase": "",
             "apiPath": "/chat/completions",
             "model": "gpt-5"
           }
@@ -79,13 +79,13 @@ data:
             "databaseName": "custom",
             "tickerMinute": 800,
             "maxWorkers": 20,
-            "host": "dbconn.sealoshzh.site",
-            "port": "33144",
+            "host": "",
+            "port": "",
             "username": "root",
-            "password": "l6754g75",
-            "tableName": "CustomKeywordRule",
-            "apiKey": "sk-1sxAT9tTxxUCiBobRJSOaYC4BFPKLdyhypXg7o9eJsmaDFhU",
-            "apiBase": "https://aiproxy.usw.sealos.io/v1",
+            "password": "",
+            "tableName": "",
+            "apiKey": "",
+            "apiBase": "",
             "apiPath": "/chat/completions",
             "model": "gpt-5"
           }
@@ -96,10 +96,10 @@ data:
         settings: |
           {
             "region": "hzh",
-            "host": "dbconn.sealoshzh.site",
-            "port": "33144",
-            "username": "root",
-            "password": "l6754g75"
+            "host": "",
+            "port": "",
+            "username": "",
+            "password": ""
           }
 
       - name: "Lark"
@@ -108,7 +108,7 @@ data:
         settings: |
           {
             "region": "hzh",
-            "webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/57e00497-a1da-41cd-9342-2e645f95e6ec"
+            "webhook": ""
           }
     logging:
       level: "info"
@@ -132,7 +132,7 @@ data:
     clusters:
       - cluster:
           certificate-authority-data: 
-          server: https://hzh.sealos.run:6443
+          server: 
         name: kubernetes
     contexts:
       - context:
