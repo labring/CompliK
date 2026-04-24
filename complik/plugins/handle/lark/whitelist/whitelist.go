@@ -61,6 +61,7 @@ func (s *WhitelistService) IsNamespaceWhitelisted(
 	namespace, region string,
 ) (bool, *Whitelist, error) {
 	var whitelist Whitelist
+
 	err := s.db.Session(&gorm.Session{Logger: logger.Discard}).
 		Model(&Whitelist{}).
 		Where("namespace = ? AND type = ? AND region = ?", namespace, WhitelistTypeNamespace, region).
@@ -71,16 +72,20 @@ func (s *WhitelistService) IsNamespaceWhitelisted(
 		}
 		return false, nil, err
 	}
+
 	return true, &whitelist, nil
 }
 
 func (s *WhitelistService) IsHostWhitelisted(host, region string) (bool, *Whitelist, error) {
 	var whitelist Whitelist
+
 	timeout := 7 * 24 * time.Hour
 	if s.timeout > 0 {
 		timeout = s.timeout
 	}
+
 	expireTime := time.Now().Add(-timeout)
+
 	err := s.db.Session(&gorm.Session{Logger: logger.Discard}).
 		Model(&Whitelist{}).
 		Where("hostname = ? AND type = ? AND region = ? AND created_at > ?", host, WhitelistTypeHost, region, expireTime).
@@ -91,6 +96,7 @@ func (s *WhitelistService) IsHostWhitelisted(host, region string) (bool, *Whitel
 		}
 		return false, nil, err
 	}
+
 	return true, &whitelist, nil
 }
 
@@ -100,6 +106,7 @@ func (s *WhitelistService) IsWhitelisted(namespace, host, region string) (bool, 
 		if err != nil {
 			return false, nil, err
 		}
+
 		if isNamespaceWhitelisted {
 			return true, whitelist, nil
 		}
@@ -110,6 +117,7 @@ func (s *WhitelistService) IsWhitelisted(namespace, host, region string) (bool, 
 		if err != nil {
 			return false, nil, err
 		}
+
 		if isHostWhitelisted {
 			return true, whitelist, nil
 		}
@@ -125,6 +133,7 @@ func (s *WhitelistService) AddNamespaceWhitelist(name, namespace, remark string)
 		Type:      WhitelistTypeNamespace,
 		Remark:    remark,
 	}
+
 	return s.db.Create(whitelist).Error
 }
 
@@ -135,6 +144,7 @@ func (s *WhitelistService) AddHostWhitelist(name, hostname, remark string) error
 		Type:     WhitelistTypeHost,
 		Remark:   remark,
 	}
+
 	return s.db.Create(whitelist).Error
 }
 
@@ -150,6 +160,7 @@ func (s *WhitelistService) AddWhitelist(
 		Type:      whitelistType,
 		Remark:    remark,
 	}
+
 	return s.db.Create(whitelist).Error
 }
 
@@ -177,29 +188,35 @@ func (s *WhitelistService) UpdateWhitelist(
 		"hostname":  hostname,
 		"remark":    remark,
 	}
+
 	return s.db.Model(&Whitelist{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (s *WhitelistService) GetWhitelistByID(id uint) (*Whitelist, error) {
 	var whitelist Whitelist
+
 	err := s.db.First(&whitelist, id).Error
 	if err != nil {
 		return nil, err
 	}
+
 	return &whitelist, nil
 }
 
 func (s *WhitelistService) GetAllWhitelists() ([]Whitelist, error) {
 	var whitelists []Whitelist
+
 	err := s.db.Order("created_at desc").Find(&whitelists).Error
 	return whitelists, err
 }
 
 func (s *WhitelistService) GetWhitelistsByType(whitelistType WhitelistType) ([]Whitelist, error) {
 	var whitelists []Whitelist
+
 	err := s.db.Where("type = ?", whitelistType).
 		Order("created_at desc").
 		Find(&whitelists).Error
+
 	return whitelists, err
 }
 
@@ -213,9 +230,11 @@ func (s *WhitelistService) GetHostWhitelists() ([]Whitelist, error) {
 
 func (s *WhitelistService) SearchWhitelists(keyword string) ([]Whitelist, error) {
 	var whitelists []Whitelist
+
 	err := s.db.Where("name LIKE ? OR namespace LIKE ? OR hostname LIKE ? OR remark LIKE ?",
 		"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%").
 		Order("created_at desc").
 		Find(&whitelists).Error
+
 	return whitelists, err
 }

@@ -80,7 +80,9 @@ func (p *DeploymentPlugin) loadConfig(setting string) error {
 		p.log.Info("Using default browser configuration")
 		return nil
 	}
+
 	var configFromJSON DeploymentConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse config, using defaults", logger.Fields{
@@ -88,12 +90,15 @@ func (p *DeploymentPlugin) loadConfig(setting string) error {
 		})
 		return err
 	}
+
 	if configFromJSON.ResyncTimeSecond > 0 {
 		p.deploymentConfig.ResyncTimeSecond = configFromJSON.ResyncTimeSecond
 	}
+
 	if configFromJSON.AgeThresholdSecond > 0 {
 		p.deploymentConfig.AgeThresholdSecond = configFromJSON.AgeThresholdSecond
 	}
+
 	return nil
 }
 
@@ -128,9 +133,12 @@ func (p *DeploymentPlugin) Start(
 	if err != nil {
 		return err
 	}
+
 	p.stopChan = make(chan struct{})
+
 	p.eventBus = eventBus
 	go p.startDeploymentInformerWatch(ctx)
+
 	return nil
 }
 
@@ -141,9 +149,11 @@ func (p *DeploymentPlugin) startDeploymentInformerWatch(ctx context.Context) {
 			time.Duration(p.deploymentConfig.ResyncTimeSecond)*time.Second,
 		)
 	}
+
 	if p.deploymentInformer == nil {
 		p.deploymentInformer = p.factory.Apps().V1().Deployments().Informer()
 	}
+
 	_, err := p.deploymentInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			deployment, ok := obj.(*appsv1.Deployment)
@@ -153,6 +163,7 @@ func (p *DeploymentPlugin) startDeploymentInformerWatch(ctx context.Context) {
 				})
 				return
 			}
+
 			if time.Since(
 				deployment.CreationTimestamp.Time,
 			) > time.Duration(
@@ -160,11 +171,13 @@ func (p *DeploymentPlugin) startDeploymentInformerWatch(ctx context.Context) {
 			)*time.Second {
 				return
 			}
+
 			if p.shouldProcessDeployment(deployment) {
 				res, err := p.getDeploymentRelatedIngresses(deployment)
 				if err != nil {
 					return
 				}
+
 				p.handleDeploymentEvent(res)
 			}
 		},
@@ -176,6 +189,7 @@ func (p *DeploymentPlugin) startDeploymentInformerWatch(ctx context.Context) {
 				})
 				return
 			}
+
 			newDeployment, ok := newObj.(*appsv1.Deployment)
 			if !ok {
 				p.log.Error("Failed to cast object to Deployment", logger.Fields{
@@ -183,6 +197,7 @@ func (p *DeploymentPlugin) startDeploymentInformerWatch(ctx context.Context) {
 				})
 				return
 			}
+
 			if p.shouldProcessDeployment(newDeployment) {
 				hasChanged := p.hasDeploymentChanged(oldDeployment, newDeployment)
 				if hasChanged {
@@ -190,6 +205,7 @@ func (p *DeploymentPlugin) startDeploymentInformerWatch(ctx context.Context) {
 					if err != nil {
 						return
 					}
+
 					p.handleDeploymentEvent(res)
 				}
 			}
@@ -199,12 +215,16 @@ func (p *DeploymentPlugin) startDeploymentInformerWatch(ctx context.Context) {
 		p.log.Error("Deployment informer stopped with error", logger.Fields{})
 		return
 	}
+
 	p.factory.Start(p.stopChan)
+
 	if !cache.WaitForCacheSync(p.stopChan, p.deploymentInformer.HasSynced) {
 		p.log.Error("Failed to wait for deployment caches to sync")
 		return
 	}
+
 	p.log.Info("Deployment informer watcher started successfully")
+
 	select {
 	case <-ctx.Done():
 		p.log.Info("Deployment watcher stopping due to context cancellation")
@@ -229,6 +249,7 @@ func (p *DeploymentPlugin) hasDeploymentChanged(
 ) bool {
 	oldImages := extractImagesFromDeployment(oldDeployment)
 	newImages := extractImagesFromDeployment(newDeployment)
+
 	hasChanged := !compareStringSlices(oldImages, newImages)
 	if hasChanged {
 		p.log.Debug("Deployment image change detected", logger.Fields{
@@ -238,6 +259,7 @@ func (p *DeploymentPlugin) hasDeploymentChanged(
 			"new_images": newImages,
 		})
 	}
+
 	return hasChanged
 }
 
@@ -246,6 +268,7 @@ func extractImagesFromDeployment(deployment *appsv1.Deployment) []string {
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		images = append(images, container.Image)
 	}
+
 	return images
 }
 
@@ -253,19 +276,24 @@ func compareStringSlices(slice1, slice2 []string) bool {
 	if len(slice1) != len(slice2) {
 		return false
 	}
+
 	count1 := make(map[string]int)
 	count2 := make(map[string]int)
+
 	for _, item := range slice1 {
 		count1[item]++
 	}
+
 	for _, item := range slice2 {
 		count2[item]++
 	}
+
 	for key, val := range count1 {
 		if count2[key] != val {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -284,12 +312,18 @@ func (p *DeploymentPlugin) getDeploymentRelatedIngresses(
 	if !exists {
 		return []models.DiscoveryInfo{}, nil
 	}
+
 	ingressItems, err := k8s.ClientSet.NetworkingV1().
 		Ingresses(deployment.Namespace).
 		List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Ingress list in namespace %s: %w", deployment.Namespace, err)
+		return nil, fmt.Errorf(
+			"failed to get Ingress list in namespace %s: %w",
+			deployment.Namespace,
+			err,
+		)
 	}
+
 	var ingresses []models.DiscoveryInfo
 	for _, ingress := range ingressItems.Items {
 		if ingressAppName, exists := ingress.Labels[AppDeployManagerLabel]; exists &&
@@ -298,5 +332,6 @@ func (p *DeploymentPlugin) getDeploymentRelatedIngresses(
 			ingresses = append(ingresses, res...)
 		}
 	}
+
 	return ingresses, nil
 }

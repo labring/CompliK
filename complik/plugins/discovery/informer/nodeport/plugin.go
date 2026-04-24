@@ -86,6 +86,7 @@ func (p *ServicePlugin) loadConfig(setting string) error {
 	}
 
 	var configFromJSON ServiceConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse configuration, using defaults", logger.Fields{
@@ -93,9 +94,11 @@ func (p *ServicePlugin) loadConfig(setting string) error {
 		})
 		return err
 	}
+
 	if configFromJSON.ResyncTimeSecond > 0 {
 		p.serviceConfig.ResyncTimeSecond = configFromJSON.ResyncTimeSecond
 	}
+
 	if configFromJSON.AgeThresholdSecond > 0 {
 		p.serviceConfig.AgeThresholdSecond = configFromJSON.AgeThresholdSecond
 	}
@@ -135,9 +138,11 @@ func (p *ServicePlugin) Start(
 	p.eventBus = eventBus
 
 	p.log.Debug("Starting service informer watcher")
+
 	go p.startServiceInformerWatch(ctx)
 
 	p.log.Info("NodePort service informer started successfully")
+
 	return nil
 }
 
@@ -148,9 +153,11 @@ func (p *ServicePlugin) startServiceInformerWatch(ctx context.Context) {
 			time.Duration(p.serviceConfig.ResyncTimeSecond)*time.Second,
 		)
 	}
+
 	if p.serviceInformer == nil {
 		p.serviceInformer = p.factory.Core().V1().Services().Informer()
 	}
+
 	_, err := p.serviceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			service, ok := obj.(*corev1.Service)
@@ -159,6 +166,7 @@ func (p *ServicePlugin) startServiceInformerWatch(ctx context.Context) {
 					"object_type": fmt.Sprintf("%T", service),
 				})
 			}
+
 			if time.Since(
 				service.CreationTimestamp.Time,
 			) > time.Duration(
@@ -166,6 +174,7 @@ func (p *ServicePlugin) startServiceInformerWatch(ctx context.Context) {
 			)*time.Second {
 				return
 			}
+
 			if p.shouldProcessService(service) {
 				res, err := p.getServiceDiscoveryInfo(service)
 				if err != nil {
@@ -174,6 +183,7 @@ func (p *ServicePlugin) startServiceInformerWatch(ctx context.Context) {
 						"name":      service.Name,
 						"error":     err.Error(),
 					})
+
 					return
 				}
 
@@ -192,12 +202,14 @@ func (p *ServicePlugin) startServiceInformerWatch(ctx context.Context) {
 					"object_type": fmt.Sprintf("%T", oldService),
 				})
 			}
+
 			newService, ok := newObj.(*corev1.Service)
 			if !ok {
 				p.log.Error("Failed to cast object to Service", logger.Fields{
 					"object_type": fmt.Sprintf("%T", newService),
 				})
 			}
+
 			if p.shouldProcessService(newService) {
 				hasChanged := p.hasServiceChanged(oldService, newService)
 				if hasChanged {
@@ -208,6 +220,7 @@ func (p *ServicePlugin) startServiceInformerWatch(ctx context.Context) {
 							"name":      newService.Name,
 							"error":     err.Error(),
 						})
+
 						return
 					}
 
@@ -224,13 +237,16 @@ func (p *ServicePlugin) startServiceInformerWatch(ctx context.Context) {
 	if err != nil {
 		return
 	}
+
 	p.factory.Start(p.stopChan)
+
 	if !cache.WaitForCacheSync(p.stopChan, p.serviceInformer.HasSynced) {
 		p.log.Error("Failed to wait for service caches to sync")
 		return
 	}
 
 	p.log.Info("Service informer watcher started successfully")
+
 	select {
 	case <-ctx.Done():
 		p.log.Info("Service watcher stopping due to context cancellation")
@@ -260,6 +276,7 @@ func (p *ServicePlugin) shouldProcessService(service *corev1.Service) bool {
 func (p *ServicePlugin) hasServiceChanged(oldService, newService *corev1.Service) bool {
 	oldPorts := extractPortsFromService(oldService)
 	newPorts := extractPortsFromService(newService)
+
 	hasChanged := !compareServicePorts(oldPorts, newPorts)
 	if hasChanged {
 		p.log.Info("Service NodePort changed", logger.Fields{
@@ -269,6 +286,7 @@ func (p *ServicePlugin) hasServiceChanged(oldService, newService *corev1.Service
 			"new_ports": newPorts,
 		})
 	}
+
 	return hasChanged
 }
 
@@ -279,6 +297,7 @@ func extractPortsFromService(service *corev1.Service) []int32 {
 			ports = append(ports, port.NodePort)
 		}
 	}
+
 	return ports
 }
 
@@ -286,19 +305,24 @@ func compareServicePorts(ports1, ports2 []int32) bool {
 	if len(ports1) != len(ports2) {
 		return false
 	}
+
 	count1 := make(map[int32]int)
 	count2 := make(map[int32]int)
+
 	for _, port := range ports1 {
 		count1[port]++
 	}
+
 	for _, port := range ports2 {
 		count2[port]++
 	}
+
 	for key, val := range count1 {
 		if count2[key] != val {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -321,13 +345,16 @@ func (p *ServicePlugin) getServiceDiscoveryInfo(
 	if !exists {
 		return []models.DiscoveryInfo{}, nil
 	}
+
 	nodes, err := k8s.ClientSet.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node list: %w", err)
 	}
+
 	if len(nodes.Items) == 0 {
 		return []models.DiscoveryInfo{}, nil
 	}
+
 	var nodeIP string
 	for _, node := range nodes.Items {
 		for _, addr := range node.Status.Addresses {
@@ -336,6 +363,7 @@ func (p *ServicePlugin) getServiceDiscoveryInfo(
 				break
 			}
 		}
+
 		if nodeIP == "" {
 			for _, addr := range node.Status.Addresses {
 				if addr.Type == corev1.NodeInternalIP {
@@ -344,10 +372,12 @@ func (p *ServicePlugin) getServiceDiscoveryInfo(
 				}
 			}
 		}
+
 		if nodeIP != "" {
 			break
 		}
 	}
+
 	if nodeIP == "" {
 		p.log.Error("Unable to get node IP address")
 		return nil, errors.New("unable to get node IP address")
@@ -356,6 +386,7 @@ func (p *ServicePlugin) getServiceDiscoveryInfo(
 	p.log.Debug("Found node IP", logger.Fields{
 		"node_ip": nodeIP,
 	})
+
 	podCount, hasActivePods, err := p.getPodInfo(service)
 	if err != nil {
 		p.log.Warn("Failed to get pod info for service", logger.Fields{
@@ -364,6 +395,7 @@ func (p *ServicePlugin) getServiceDiscoveryInfo(
 			"error":     err.Error(),
 		})
 	}
+
 	var discoveryInfos []models.DiscoveryInfo
 	for _, port := range service.Spec.Ports {
 		if port.NodePort > 0 {
@@ -402,13 +434,16 @@ func (p *ServicePlugin) getPodInfo(service *corev1.Service) (int, bool, error) {
 	if len(service.Spec.Selector) == 0 {
 		return 0, false, nil
 	}
+
 	selector := metav1.LabelSelector{
 		MatchLabels: service.Spec.Selector,
 	}
+
 	labelSelector, err := metav1.LabelSelectorAsSelector(&selector)
 	if err != nil {
 		return 0, false, fmt.Errorf("failed to build label selector: %w", err)
 	}
+
 	pods, err := k8s.ClientSet.CoreV1().
 		Pods(service.Namespace).
 		List(context.TODO(), metav1.ListOptions{
@@ -417,7 +452,9 @@ func (p *ServicePlugin) getPodInfo(service *corev1.Service) (int, bool, error) {
 	if err != nil {
 		return 0, false, fmt.Errorf("failed to get Pod list: %w", err)
 	}
+
 	totalCount := len(pods.Items)
+
 	activeCount := 0
 	for _, pod := range pods.Items {
 		if pod.Status.Phase == corev1.PodRunning {
@@ -430,10 +467,12 @@ func (p *ServicePlugin) getPodInfo(service *corev1.Service) (int, bool, error) {
 					break
 				}
 			}
+
 			if allReady {
 				activeCount++
 			}
 		}
 	}
+
 	return totalCount, activeCount > 0, nil
 }

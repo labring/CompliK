@@ -83,7 +83,9 @@ func (p *IngressPlugin) loadConfig(setting string) error {
 		p.log.Info("Using default ingress configuration")
 		return nil
 	}
+
 	var configFromJSON IngressConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse config, using defaults", logger.Fields{
@@ -91,12 +93,15 @@ func (p *IngressPlugin) loadConfig(setting string) error {
 		})
 		return err
 	}
+
 	if configFromJSON.ResyncTimeSecond > 0 {
 		p.ingressConfig.ResyncTimeSecond = configFromJSON.ResyncTimeSecond
 	}
+
 	if configFromJSON.AgeThresholdSecond > 0 {
 		p.ingressConfig.AgeThresholdSecond = configFromJSON.AgeThresholdSecond
 	}
+
 	return nil
 }
 
@@ -117,9 +122,12 @@ func (p *IngressPlugin) Start(
 	if err != nil {
 		return err
 	}
+
 	p.stopChan = make(chan struct{})
+
 	p.eventBus = eventBus
 	go p.startIngressInformerWatch(ctx)
+
 	return nil
 }
 
@@ -130,6 +138,7 @@ func (p *IngressPlugin) startIngressInformerWatch(ctx context.Context) {
 			time.Duration(p.ingressConfig.ResyncTimeSecond)*time.Second,
 		)
 	}
+
 	if p.ingressInformer == nil {
 		p.ingressInformer = p.factory.Networking().V1().Ingresses().Informer()
 	}
@@ -140,6 +149,7 @@ func (p *IngressPlugin) startIngressInformerWatch(ctx context.Context) {
 			if !ok {
 				p.log.Error("Failed to get ingress object", logger.Fields{})
 			}
+
 			if time.Since(
 				ingress.CreationTimestamp.Time,
 			) > time.Duration(
@@ -147,6 +157,7 @@ func (p *IngressPlugin) startIngressInformerWatch(ctx context.Context) {
 			)*time.Second {
 				return
 			}
+
 			if p.shouldProcessIngress(ingress) {
 				discoveryInfos, err := p.getIngressWithPodInfo(ingress)
 				if err != nil {
@@ -155,8 +166,10 @@ func (p *IngressPlugin) startIngressInformerWatch(ctx context.Context) {
 						"ingress":   ingress.Name,
 						"namespace": ingress.Namespace,
 					})
+
 					return
 				}
+
 				p.handleIngressEvent(discoveryInfos)
 			}
 		},
@@ -167,12 +180,14 @@ func (p *IngressPlugin) startIngressInformerWatch(ctx context.Context) {
 					"object_type": fmt.Sprintf("%T", oldObj),
 				})
 			}
+
 			newIngress, ok := newObj.(*networkingv1.Ingress)
 			if !ok {
 				p.log.Error("Failed to get ingress object", logger.Fields{
 					"object_type": fmt.Sprintf("%T", newObj),
 				})
 			}
+
 			if p.shouldProcessIngress(newIngress) {
 				hasChanged := p.hasIngressChanged(oldIngress, newIngress)
 				if hasChanged {
@@ -183,8 +198,10 @@ func (p *IngressPlugin) startIngressInformerWatch(ctx context.Context) {
 							"ingress":   newIngress.Name,
 							"namespace": newIngress.Namespace,
 						})
+
 						return
 					}
+
 					p.handleIngressEvent(discoveryInfos)
 				}
 			}
@@ -196,6 +213,7 @@ func (p *IngressPlugin) startIngressInformerWatch(ctx context.Context) {
 					"object_type": fmt.Sprintf("%T", obj),
 				})
 			}
+
 			if p.shouldProcessIngress(ingress) {
 				discoveryInfos := utils.GenerateDiscoveryInfo(*ingress, false, 0, p.Name())
 				p.handleIngressEvent(discoveryInfos)
@@ -207,11 +225,14 @@ func (p *IngressPlugin) startIngressInformerWatch(ctx context.Context) {
 	}
 
 	p.factory.Start(p.stopChan)
+
 	if !cache.WaitForCacheSync(p.stopChan, p.ingressInformer.HasSynced) {
 		p.log.Error("Failed to wait for ingress caches to sync")
 		return
 	}
+
 	p.log.Info("Ingress informer watcher started successfully")
+
 	select {
 	case <-ctx.Done():
 		p.log.Info("Ingress watcher stopping due to context cancellation")
@@ -248,6 +269,7 @@ func (p *IngressPlugin) hasIngressChanged(oldIngress, newIngress *networkingv1.I
 		if oldRule.HTTP == nil && newRule.HTTP == nil {
 			continue
 		}
+
 		if (oldRule.HTTP == nil) != (newRule.HTTP == nil) {
 			return true
 		}
@@ -266,9 +288,11 @@ func (p *IngressPlugin) hasIngressChanged(oldIngress, newIngress *networkingv1.I
 			if oldPath.Backend.Service == nil && newPath.Backend.Service == nil {
 				continue
 			}
+
 			if (oldPath.Backend.Service == nil) != (newPath.Backend.Service == nil) {
 				return true
 			}
+
 			if oldPath.Backend.Service.Name != newPath.Backend.Service.Name {
 				return true
 			}
@@ -294,7 +318,11 @@ func (p *IngressPlugin) getIngressWithPodInfo(
 		EndpointSlices(ingress.Namespace).
 		List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get EndpointSlice list in namespace %s: %w", ingress.Namespace, err)
+		return nil, fmt.Errorf(
+			"failed to get EndpointSlice list in namespace %s: %w",
+			ingress.Namespace,
+			err,
+		)
 	}
 
 	// Build EndpointSlice mapping
@@ -312,6 +340,7 @@ func (p *IngressPlugin) getIngressWithPodInfo(
 		if endpointSlicesMap[ingress.Namespace][serviceName] == nil {
 			endpointSlicesMap[ingress.Namespace][serviceName] = []*discoveryv1.EndpointSlice{}
 		}
+
 		endpointSlicesMap[ingress.Namespace][serviceName] = append(
 			endpointSlicesMap[ingress.Namespace][serviceName],
 			slice,

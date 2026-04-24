@@ -50,18 +50,23 @@ func (d *DetectorInfo) SaveToFile(dirPath string) error {
 	if d == nil {
 		return errors.New("models.DetectorInfo is nil")
 	}
+
 	if err := os.MkdirAll(dirPath, 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
+
 	timestamp := time.Now().Format("20060102_150405")
 	filename := fmt.Sprintf("analysis_%s.json", timestamp)
 	filePath := filepath.Join(dirPath, filename)
+
 	data, err := json.MarshalIndent(d, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
+
 	if err := os.WriteFile(filePath, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
+
 	return nil
 }

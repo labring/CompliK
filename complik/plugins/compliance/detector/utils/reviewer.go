@@ -45,6 +45,7 @@ func NewContentReviewer(
 	apiKey, apiBase, apiPath, model string,
 ) *ContentReviewer {
 	apiURL := apiBase + apiPath
+
 	return &ContentReviewer{
 		log:    log,
 		apiKey: apiKey,
@@ -75,6 +76,7 @@ func (r *ContentReviewer) ReviewSiteContent(
 			"error": err.Error(),
 			"host":  content.Host,
 		})
+
 		return nil, fmt.Errorf("failed to prepare request data: %w", err)
 	}
 
@@ -89,16 +91,19 @@ func (r *ContentReviewer) ReviewSiteContent(
 			"error": err.Error(),
 			"host":  content.Host,
 		})
+
 		return nil, fmt.Errorf("failed to call API: %w", err)
 	}
 
 	r.log.Debug("Parsing API response")
+
 	result, err := r.parseResponse(response, content, name)
 	if err != nil {
 		r.log.Error("Failed to parse response", logger.Fields{
 			"error": err.Error(),
 			"host":  content.Host,
 		})
+
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
@@ -117,20 +122,24 @@ func (r *ContentReviewer) prepareRequestData(
 ) (map[string]any, error) {
 	base64Image := base64.StdEncoding.EncodeToString(content.Screenshot)
 	htmlContent := content.HTML
+
 	originalLength := len(htmlContent)
 	if len(htmlContent) > 10000 {
 		htmlContent = htmlContent[:10000] + "..."
+
 		r.log.Debug("HTML content truncated", logger.Fields{
 			"original_length": originalLength,
 			"truncated_to":    10000,
 		})
 	}
+
 	var prompt string
 	if customRules == nil || len(customRules) == 0 {
 		prompt = r.buildPrompt(htmlContent)
 	} else {
 		prompt = r.buildCustomPrompt(htmlContent, customRules)
 	}
+
 	requestData := map[string]any{
 		"model": r.model,
 		"messages": []map[string]any{
@@ -153,6 +162,7 @@ func (r *ContentReviewer) prepareRequestData(
 		"max_completion_tokens": 6000,
 		"response_format":       ReviewResultSchema,
 	}
+
 	return requestData, nil
 }
 
@@ -220,7 +230,9 @@ func (r *ContentReviewer) buildRulesDescription(rules []CustomKeywordRule) strin
 
 		builder.WriteString(ruleText)
 	}
+
 	result := builder.String()
+
 	return result
 }
 
@@ -229,6 +241,7 @@ func (r *ContentReviewer) buildCustomPrompt(
 	customRules []CustomKeywordRule,
 ) string {
 	rulesDescription := r.buildRulesDescription(customRules)
+
 	return fmt.Sprintf(`# Role: Intelligent Webpage Content Compliance Detection Expert
 
 # Task Objective:
@@ -288,6 +301,7 @@ func (r *ContentReviewer) callAPI(
 		})
 		return nil, err
 	}
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
@@ -299,10 +313,13 @@ func (r *ContentReviewer) callAPI(
 			"error": err.Error(),
 			"url":   r.apiURL,
 		})
+
 		return nil, err
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+r.apiKey)
+
 	client := &http.Client{
 		Timeout: 60 * time.Second,
 	}
@@ -317,10 +334,12 @@ func (r *ContentReviewer) callAPI(
 		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
 		}
+
 		r.log.Error("Failed to send HTTP request", logger.Fields{
 			"error": err.Error(),
 			"url":   r.apiURL,
 		})
+
 		return nil, err
 	}
 	defer func(Body io.ReadCloser) {
@@ -330,10 +349,12 @@ func (r *ContentReviewer) callAPI(
 			})
 		}
 	}(resp.Body)
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+
 	if resp.StatusCode != http.StatusOK {
 		errorText := string(body)
 		r.log.Error("API call failed with non-200 status", logger.Fields{
@@ -341,12 +362,15 @@ func (r *ContentReviewer) callAPI(
 			"error_text":  errorText,
 			"url":         r.apiURL,
 		})
+
 		return nil, fmt.Errorf("API call failed: status code %d", resp.StatusCode)
 	}
+
 	var responseData APIResponse
 	if err := json.Unmarshal(body, &responseData); err != nil {
 		return nil, fmt.Errorf("failed to decode API response: %w", err)
 	}
+
 	if len(responseData.Choices) == 0 {
 		r.log.Error("API response has no choices")
 		return nil, errors.New("no results in API response")
@@ -355,6 +379,7 @@ func (r *ContentReviewer) callAPI(
 	r.log.Debug("API call successful", logger.Fields{
 		"choices_count": len(responseData.Choices),
 	})
+
 	return &responseData, nil
 }
 
@@ -372,6 +397,7 @@ func (r *ContentReviewer) parseResponse(
 			"error":           err.Error(),
 			"raw_data_length": len(cleanData),
 		})
+
 		return nil, fmt.Errorf("failed to parse API response: %w", err)
 	}
 
@@ -381,6 +407,7 @@ func (r *ContentReviewer) parseResponse(
 	}
 
 	isIllegal := result.Compliance.IsIllegal == "Yes"
+
 	explanation := result.Compliance.Explanation
 	if explanation == "" {
 		explanation = "No specific explanation"

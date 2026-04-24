@@ -96,6 +96,7 @@ func (mc *MetricsCollector) RecordOperation(name string, duration time.Duration,
 	if duration < op.MinTime {
 		op.MinTime = duration
 	}
+
 	if duration > op.MaxTime {
 		op.MaxTime = duration
 	}
@@ -133,12 +134,14 @@ func (mc *MetricsCollector) updateSystemMetrics() {
 	runtime.ReadMemStats(&m)
 
 	mc.metrics.MemoryUsage = m.Alloc
+
 	mc.metrics.GoroutineCount = runtime.NumGoroutine()
 	if m.PauseTotalNs > math.MaxInt64 {
 		mc.metrics.GCPauseTime = time.Duration(math.MaxInt64)
 	} else {
 		mc.metrics.GCPauseTime = time.Duration(m.PauseTotalNs)
 	}
+
 	mc.metrics.GCPauseTime = time.Duration(m.PauseTotalNs)
 	mc.metrics.Uptime = time.Since(mc.metrics.StartTime)
 }

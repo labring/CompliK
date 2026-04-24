@@ -51,15 +51,18 @@ func NewManager(eventBus *eventbus.EventBus) *Manager {
 func (m *Manager) LoadPlugins(pluginConfigs []config.PluginConfig) error {
 	log := logger.GetLogger()
 	log.Info("Loading plugins", logger.Fields{"count": len(pluginConfigs)})
+
 	for _, pluginConfig := range pluginConfigs {
 		if err := m.LoadPlugin(pluginConfig); err != nil {
 			log.Error("Failed to load plugin", logger.Fields{
 				"plugin": pluginConfig.Name,
 				"error":  err.Error(),
 			})
+
 			continue
 		}
 	}
+
 	return nil
 }
 
@@ -75,6 +78,7 @@ func (m *Manager) LoadPlugin(pluginConfig config.PluginConfig) error {
 			"plugin":    pluginConfig.Name,
 			"available": getRegisteredFactoryNames(),
 		})
+
 		return nil
 	}
 
@@ -95,6 +99,7 @@ func (m *Manager) LoadPlugin(pluginConfig config.PluginConfig) error {
 		"type":    pluginConfig.Type,
 		"enabled": pluginConfig.Enabled,
 	})
+
 	return nil
 }
 
@@ -103,6 +108,7 @@ func getRegisteredFactoryNames() []string {
 	for name := range PluginFactories {
 		names = append(names, name)
 	}
+
 	return names
 }
 
@@ -113,54 +119,74 @@ func (m *Manager) StartAll() error {
 func (m *Manager) StartAllWithTimeout() error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	log := logger.GetLogger()
+
 	var wg sync.WaitGroup
+
 	errChan := make(chan error, len(m.pluginInstances))
 	for name, instance := range m.pluginInstances {
 		if !instance.Config.Enabled {
 			log.Debug("Plugin disabled, skipping", logger.Fields{"plugin": name})
 			continue
 		}
+
 		wg.Add(1)
 		log.Info("Starting plugin", logger.Fields{"plugin": name})
+
 		go func(name string, instance *PluginInstance) {
 			defer wg.Done()
+
 			pluginLog := log.WithField("plugin", name)
-			if err := instance.Plugin.Start(context.Background(), instance.Config, m.eventBus); err != nil {
+			if err := instance.Plugin.Start(
+				context.Background(),
+				instance.Config,
+				m.eventBus,
+			); err != nil {
 				pluginLog.Error("Plugin failed", logger.Fields{"error": err.Error()})
+
 				errChan <- fmt.Errorf("plugin %s failed to start: %w", name, err)
 			} else {
 				pluginLog.Info("Plugin started successfully")
 			}
 		}(name, instance)
 	}
+
 	done := make(chan struct{})
 	go func() {
 		wg.Wait()
 		close(done)
 	}()
+
 	select {
 	case <-done:
 		close(errChan)
+
 		var errors []error
 		for err := range errChan {
 			errors = append(errors, err)
 		}
+
 		if len(errors) > 0 {
 			return fmt.Errorf("failed to start %d plugins: %v", len(errors), errors)
 		}
+
 		return nil
 	}
 }
 
 func (m *Manager) StopAll() error {
 	ctx, cancel := context.WithTimeout(context.Background(), PluginStopTimeout)
+
 	m.mu.RLock()
 	defer m.mu.RUnlock()
+
 	log := logger.GetLogger()
 	log.Info("Stopping all plugins")
+
 	for name, instance := range m.pluginInstances {
 		log.Info("Stopping plugin", logger.Fields{"plugin": name})
+
 		if err := instance.Plugin.Stop(ctx); err != nil {
 			log.Error("Error stopping plugin", logger.Fields{
 				"plugin": name,
@@ -170,7 +196,9 @@ func (m *Manager) StopAll() error {
 			log.Debug("Plugin stopped", logger.Fields{"plugin": name})
 		}
 	}
+
 	cancel()
 	log.Info("All plugins stopped")
+
 	return nil
 }

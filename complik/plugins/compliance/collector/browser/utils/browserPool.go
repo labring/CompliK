@@ -62,39 +62,50 @@ func NewBrowserPool(maxSize int, maxAge time.Duration) *BrowserPool {
 
 	// Start background cleanup goroutine
 	go pool.backgroundCleanup()
+
 	return pool
 }
 
 func (p *BrowserPool) Get(ctx context.Context) (*BrowserInstance, error) {
 	p.mu.RLock()
+
 	for _, instance := range p.instances {
 		if !instance.InUse && time.Since(instance.Created) < p.maxAge {
 			p.mu.RUnlock()
 			p.mu.Lock()
+
 			if !instance.InUse {
 				instance.InUse = true
+
 				p.mu.Unlock()
 				return instance, nil
 			}
+
 			p.mu.Unlock()
 			p.mu.RLock()
 		}
 	}
+
 	p.mu.RUnlock()
 	p.mu.Lock()
+
 	if len(p.instances) < p.maxSize {
 		instance, err := p.createInstance()
 		if err != nil {
 			p.mu.Unlock()
 			return nil, err
 		}
+
 		instance.InUse = true
 		p.instances = append(p.instances, instance)
 		p.mu.Unlock()
+
 		return instance, nil
 	}
+
 	p.mu.Unlock()
 	p.log.Debug("Browser pool full, waiting for available instance")
+
 	waitChan := make(chan *BrowserInstance, 1)
 	select {
 	case p.waitQueue <- waitChan:
@@ -122,6 +133,7 @@ func (p *BrowserPool) Put(instance *BrowserInstance) {
 
 	if time.Since(instance.Created) >= p.maxAge {
 		p.removeInstance(instance)
+
 		go p.cleanupInstance(instance)
 		return
 	}
@@ -149,6 +161,7 @@ func (p *BrowserPool) createInstance() (*BrowserInstance, error) {
 		Set("disable-web-security", "").
 		Set("disable-features", "VizDisplayCompositor").
 		Headless(true)
+
 	u, err := l.Launch()
 	if err != nil {
 		p.log.Error("Failed to launch browser", logger.Fields{
@@ -177,8 +190,11 @@ func (p *BrowserPool) createInstance() (*BrowserInstance, error) {
 }
 
 func (p *BrowserPool) cleanupExpired() {
-	var validInstances []*BrowserInstance
-	var expiredInstances []*BrowserInstance
+	var (
+		validInstances   []*BrowserInstance
+		expiredInstances []*BrowserInstance
+	)
+
 	for _, instance := range p.instances {
 		if time.Since(instance.Created) >= p.maxAge || instance.Browser == nil {
 			expiredInstances = append(expiredInstances, instance)
@@ -215,6 +231,7 @@ func (p *BrowserPool) cleanupInstance(instance *BrowserInstance) {
 			p.log.Error("Panic during browser cleanup", logger.Fields{"panic": r})
 		}
 	}()
+
 	if instance.Browser != nil {
 		if err := instance.Browser.Close(); err != nil {
 			p.log.Warn("Browser close failed, will force kill launcher", logger.Fields{
@@ -224,6 +241,7 @@ func (p *BrowserPool) cleanupInstance(instance *BrowserInstance) {
 			p.log.Debug("Browser closed gracefully")
 		}
 	}
+
 	if instance.Launcher != nil {
 		instance.Launcher.Kill()
 		p.log.Debug("Launcher killed")
@@ -237,10 +255,12 @@ func (p *BrowserPool) backgroundCleanup() {
 
 	for range ticker.C {
 		p.mu.Lock()
+
 		if p.closed {
 			p.mu.Unlock()
 			return
 		}
+
 		p.cleanupExpired()
 		p.mu.Unlock()
 	}

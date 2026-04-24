@@ -1,0 +1,22 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: higress-gateway-metrics
+  namespace: vm
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+      - higress-system
+  podMetricsEndpoints:
+    - metricRelabelConfigs:
+        - action: keep
+          regex: envoy_cluster_upstream_rq
+          sourceLabels:
+            - __name__
+      path: /stats/prometheus
+      port: istio-prom
+  selector:
+    matchLabels:
+      app: higress-gateway
+      higress: higress-system-higress-gateway

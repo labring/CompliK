@@ -29,17 +29,21 @@ var (
 
 func InitClient(kubeconfigPath string) error {
 	var err error
+
 	Config, err = clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 	if err != nil {
 		return err
 	}
+
 	ClientSet, err = kubernetes.NewForConfig(Config)
 	if err != nil {
 		return err
 	}
+
 	DynamicClient, err = dynamic.NewForConfig(Config)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
