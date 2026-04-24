@@ -15,9 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GHCR_COMPLIK: ghcr.io/${{ github.repository }}/complik
-  GHCR_PROCSCAN: ghcr.io/${{ github.repository }}/procscan
-  GHCR_CLUSTER: ghcr.io/${{ github.repository }}/cluster
+  GHCR_COMPLIK: ghcr.io/${{ github.repository_owner }}/complik
+  GHCR_PROCSCAN: ghcr.io/${{ github.repository_owner }}/procscan
+  GHCR_CLUSTER: ghcr.io/${{ github.repository_owner }}/cluster
 
 jobs:
   build-complik:
