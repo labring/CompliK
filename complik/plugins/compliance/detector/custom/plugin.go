@@ -110,6 +110,7 @@ func (p *CustomPlugin) loadConfig(setting string) error {
 	}
 
 	var configFromJSON CustomConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse configuration", logger.Fields{
@@ -121,15 +122,19 @@ func (p *CustomPlugin) loadConfig(setting string) error {
 	if configFromJSON.Host == "" {
 		return errors.New("host configuration cannot be empty")
 	}
+
 	if configFromJSON.Port == "" {
 		return errors.New("port configuration cannot be empty")
 	}
+
 	if configFromJSON.Username == "" {
 		return errors.New("username configuration cannot be empty")
 	}
+
 	if configFromJSON.Password == "" {
 		return errors.New("password configuration cannot be empty")
 	}
+
 	if configFromJSON.APIKey == "" {
 		return errors.New("APIKey configuration cannot be empty")
 	}
@@ -159,27 +164,35 @@ func (p *CustomPlugin) loadConfig(setting string) error {
 	if configFromJSON.APIPath != "" {
 		p.customConfig.APIPath = configFromJSON.APIPath
 	}
+
 	if configFromJSON.APIBase != "" {
 		p.customConfig.APIBase = configFromJSON.APIBase
 	}
+
 	if configFromJSON.Dsn != "" {
 		p.customConfig.Dsn = configFromJSON.Dsn
 	}
+
 	if configFromJSON.DatabaseName != "" {
 		p.customConfig.DatabaseName = configFromJSON.DatabaseName
 	}
+
 	if configFromJSON.TickerMinute > 0 {
 		p.customConfig.TickerMinute = configFromJSON.TickerMinute
 	}
+
 	if configFromJSON.MaxWorkers > 0 {
 		p.customConfig.MaxWorkers = configFromJSON.MaxWorkers
 	}
+
 	if configFromJSON.Charset != "" {
 		p.customConfig.Charset = configFromJSON.Charset
 	}
+
 	if configFromJSON.TableName != "" {
 		p.customConfig.TableName = configFromJSON.TableName
 	}
+
 	if configFromJSON.Model != "" {
 		p.customConfig.Model = configFromJSON.Model
 	}
@@ -212,12 +225,14 @@ func (p *CustomPlugin) Start(
 	}
 
 	p.log.Debug("Initializing database connection")
+
 	if err := p.initDB(); err != nil {
 		p.log.Error("Failed to initialize database", logger.Fields{
 			"error": err.Error(),
 		})
 		return fmt.Errorf("failed to initialize database: %w", err)
 	}
+
 	p.reviewer = utils.NewContentReviewer(
 		p.log,
 		p.customConfig.APIKey,
@@ -226,6 +241,7 @@ func (p *CustomPlugin) Start(
 		p.customConfig.Model,
 	)
 	p.log.Debug("Content reviewer initialized")
+
 	err = p.readFromDatabase(ctx)
 	if err != nil {
 		p.log.Error("Failed to read keywords from database", logger.Fields{
@@ -233,20 +249,25 @@ func (p *CustomPlugin) Start(
 		})
 		return err
 	}
+
 	p.log.Info("Keywords loaded from database", logger.Fields{
 		"keyword_count": len(p.keywords),
 	})
+
 	subscribe := eventBus.Subscribe(constants.CollectorTopic)
 	p.log.Debug("Subscribed to collector topic", logger.Fields{
 		"topic": constants.CollectorTopic,
 	})
 	semaphore := make(chan struct{}, p.customConfig.MaxWorkers)
+
 	ticker := time.NewTicker(time.Duration(p.customConfig.TickerMinute) * time.Minute)
 	defer ticker.Stop()
+
 	p.log.Info("Custom detector started", logger.Fields{
 		"worker_pool_size":         p.customConfig.MaxWorkers,
 		"refresh_interval_minutes": p.customConfig.TickerMinute,
 	})
+
 	for {
 		select {
 		case event, ok := <-subscribe:
@@ -254,7 +275,9 @@ func (p *CustomPlugin) Start(
 				p.log.Info("Event subscription channel closed")
 				return nil
 			}
+
 			semaphore <- struct{}{}
+
 			go func(e eventbus.Event) {
 				defer func() { <-semaphore }()
 				defer func() {
@@ -272,6 +295,7 @@ func (p *CustomPlugin) Start(
 						"expected": "*models.CollectorInfo",
 						"actual":   fmt.Sprintf("%T", e.Payload),
 					})
+
 					return
 				}
 
@@ -316,6 +340,7 @@ func (p *CustomPlugin) Start(
 				}()
 
 				p.log.Debug("Scheduled database read triggered")
+
 				err := p.readFromDatabase(ctx)
 				if err != nil {
 					p.log.Error("Failed to read keywords from database", logger.Fields{
@@ -334,7 +359,9 @@ func (p *CustomPlugin) Start(
 			for range p.customConfig.MaxWorkers {
 				semaphore <- struct{}{}
 			}
+
 			p.log.Debug("All workers finished")
+
 			return nil
 		}
 	}
@@ -371,10 +398,12 @@ func (p *CustomPlugin) initDB() error {
 			},
 		),
 	}
+
 	db, err := gorm.Open(mysql.Open(serverDSN), dbConfig)
 	if err != nil {
 		return fmt.Errorf("failed to connect to MySQL server: %w", err)
 	}
+
 	err = db.Exec(
 		fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s CHARACTER SET %s COLLATE %s_unicode_ci",
 			p.customConfig.DatabaseName,
@@ -384,11 +413,14 @@ func (p *CustomPlugin) initDB() error {
 	if err != nil {
 		return fmt.Errorf("failed to create database: %w", err)
 	}
+
 	dbDSN := p.buildDSN(true)
+
 	db, err = gorm.Open(mysql.Open(dbDSN), dbConfig)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
+
 	p.db = db
 	tableName := db.NamingStrategy.TableName("CustomKeywordRule")
 
@@ -396,7 +428,9 @@ func (p *CustomPlugin) initDB() error {
 	if err != nil {
 		return fmt.Errorf("failed to create table: %w", err)
 	}
+
 	var tableExists bool
+
 	err = db.Raw("SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
 		p.customConfig.TableName, tableName).
 		Scan(&tableExists).
@@ -407,21 +441,26 @@ func (p *CustomPlugin) initDB() error {
 			"table": tableName,
 		})
 	}
+
 	var count int64
+
 	err = db.Model(&utils.CustomKeywordRule{}).Count(&count).Error
 	if err != nil {
 		return fmt.Errorf("failed to query data count: %w", err)
 	}
+
 	if count == 0 {
 		sampleRule := utils.CustomKeywordRule{
 			Type:        "malware",
 			Keywords:    strings.Join([]string{"virus", "trojan", "malware", "backdoor"}, ","),
 			Description: "Malware detection rule",
 		}
+
 		err = db.Create(&sampleRule).Error
 		if err != nil {
 			return fmt.Errorf("failed to insert sample data: %w", err)
 		}
+
 		var newCount int64
 		db.Model(&utils.CustomKeywordRule{}).Count(&newCount)
 
@@ -444,10 +483,12 @@ func (p *CustomPlugin) buildDSN(includeDB bool) string {
 	if p.customConfig.Dsn != "" {
 		return p.customConfig.Dsn
 	}
+
 	dbPart := "/"
 	if includeDB {
 		dbPart = "/" + p.customConfig.DatabaseName
 	}
+
 	return fmt.Sprintf("%s:%s@tcp(%s:%s)%s?charset=%s&parseTime=True&loc=Local",
 		p.customConfig.Username,
 		p.customConfig.Password,
@@ -462,6 +503,7 @@ func (p *CustomPlugin) readFromDatabase(ctx context.Context) error {
 	var models []utils.CustomKeywordRule
 
 	p.log.Debug("Reading keyword rules from database")
+
 	err := p.db.WithContext(ctx).Find(&models).Error
 	if err != nil {
 		p.log.Error("Failed to read keyword rules", logger.Fields{
@@ -498,6 +540,7 @@ func (p *CustomPlugin) customJudge(
 		p.log.Debug("Skipping empty content", logger.Fields{
 			"host": collector.Host,
 		})
+
 		return &models.DetectorInfo{
 			DiscoveryName: collector.DiscoveryName,
 			CollectorName: collector.CollectorName,
@@ -512,6 +555,7 @@ func (p *CustomPlugin) customJudge(
 			Keywords:      []string{},
 		}, nil
 	}
+
 	result, err := p.reviewer.ReviewSiteContent(taskCtx, collector, p.Name(), p.keywords)
 	if err != nil {
 		return &models.DetectorInfo{

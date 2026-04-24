@@ -25,6 +25,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bearslyricattack/CompliK/complik/pkg/models"
@@ -55,14 +56,18 @@ func (f *Notifier) SendAnalysisNotification(results *models.DetectorInfo) error 
 		fmt.Println("Webhook URL not configured, skipping notification")
 		return errors.New("webhook URL not configured, skipping notification")
 	}
+
 	if results == nil {
 		fmt.Println("Analysis result is empty")
 		return errors.New("analysis result is empty")
 	}
+
 	if !results.IsIllegal {
 		return nil
 	}
+
 	isWhitelisted := false
+
 	var whitelistInfo *whitelist.Whitelist
 	if f.WhitelistService != nil {
 		whitelisted, whitelist, err := f.WhitelistService.IsWhitelisted(
@@ -77,10 +82,15 @@ func (f *Notifier) SendAnalysisNotification(results *models.DetectorInfo) error 
 			whitelistInfo = whitelist
 		}
 	}
+
 	var cardContent map[string]any
 	if isWhitelisted {
 		cardContent = f.buildWhitelistMessage(results, whitelistInfo)
-		log.Printf("Resource [Namespace: %s, Host: %s] is in whitelist, sending whitelist notification", results.Namespace, results.Host)
+		log.Printf(
+			"Resource [Namespace: %s, Host: %s] is in whitelist, sending whitelist notification",
+			results.Namespace,
+			results.Host,
+		)
 	} else {
 		cardContent = f.buildAlertMessage(results)
 	}
@@ -89,6 +99,7 @@ func (f *Notifier) SendAnalysisNotification(results *models.DetectorInfo) error 
 		MsgType: "interactive",
 		Card:    cardContent,
 	}
+
 	return f.sendMessage(message)
 }
 
@@ -142,19 +153,21 @@ func (f *Notifier) buildWhitelistMessage(
 	}
 
 	if len(results.Path) > 0 {
-		pathContent := "**Detection Paths:**\n"
+		var pathContent strings.Builder
+		pathContent.WriteString("**Detection Paths:**\n")
 		for i, path := range results.Path {
 			if i < 5 {
-				pathContent += fmt.Sprintf("  • %s\n", path)
+				pathContent.WriteString(fmt.Sprintf("  • %s\n", path))
 			} else if i == 5 {
-				pathContent += fmt.Sprintf("  • ... %d more paths\n", len(results.Path)-5)
+				pathContent.WriteString(fmt.Sprintf("  • ... %d more paths\n", len(results.Path)-5))
 				break
 			}
 		}
+
 		basicInfoElements = append(basicInfoElements, map[string]any{
 			"tag": "div",
 			"text": map[string]any{
-				"content": pathContent,
+				"content": pathContent.String(),
 				"tag":     "lark_md",
 			},
 		})
@@ -183,8 +196,10 @@ func (f *Notifier) buildWhitelistMessage(
 
 	// Display different information based on whitelist type
 	if whitelistInfo != nil {
-		var whitelistTypeText string
-		var validityText string
+		var (
+			whitelistTypeText string
+			validityText      string
+		)
 
 		switch whitelistInfo.Type {
 		case whitelist.WhitelistTypeNamespace:
@@ -224,8 +239,11 @@ func (f *Notifier) buildWhitelistMessage(
 			whitelistElements = append(whitelistElements, map[string]any{
 				"tag": "div",
 				"text": map[string]any{
-					"content": fmt.Sprintf("**Match Rule:** Namespace `%s`", whitelistInfo.Namespace),
-					"tag":     "lark_md",
+					"content": fmt.Sprintf(
+						"**Match Rule:** Namespace `%s`",
+						whitelistInfo.Namespace,
+					),
+					"tag": "lark_md",
 				},
 			})
 		} else if whitelistInfo.Type == whitelist.WhitelistTypeHost && whitelistInfo.Hostname != "" {
@@ -249,6 +267,7 @@ func (f *Notifier) buildWhitelistMessage(
 			})
 		}
 	}
+
 	detectionElements := []map[string]any{
 		{
 			"tag": "hr",
@@ -273,17 +292,20 @@ func (f *Notifier) buildWhitelistMessage(
 	}
 
 	if len(results.Keywords) > 0 {
-		keywordContent := "**Keywords:** "
+		var keywordContent strings.Builder
+		keywordContent.WriteString("**Keywords:** ")
 		for i, keyword := range results.Keywords {
 			if i > 0 {
-				keywordContent += ", "
+				keywordContent.WriteString(", ")
 			}
-			keywordContent += fmt.Sprintf("`%s`", keyword)
+
+			keywordContent.WriteString(fmt.Sprintf("`%s`", keyword))
 		}
+
 		detectionElements = append(detectionElements, map[string]any{
 			"tag": "div",
 			"text": map[string]any{
-				"content": keywordContent,
+				"content": keywordContent.String(),
 				"tag":     "lark_md",
 			},
 		})
@@ -298,6 +320,7 @@ func (f *Notifier) buildWhitelistMessage(
 			},
 		})
 	}
+
 	elements := append(basicInfoElements, whitelistElements...)
 
 	elements = append(elements, detectionElements...)
@@ -377,19 +400,21 @@ func (f *Notifier) buildAlertMessage(results *models.DetectorInfo) map[string]an
 	}
 
 	if len(results.Path) > 0 {
-		pathContent := "**Detection Paths:**\n"
+		var pathContent strings.Builder
+		pathContent.WriteString("**Detection Paths:**\n")
 		for i, path := range results.Path {
 			if i < 5 {
-				pathContent += fmt.Sprintf("  • %s\n", path)
+				pathContent.WriteString(fmt.Sprintf("  • %s\n", path))
 			} else if i == 5 {
-				pathContent += fmt.Sprintf("  • ... %d more paths\n", len(results.Path)-5)
+				pathContent.WriteString(fmt.Sprintf("  • ... %d more paths\n", len(results.Path)-5))
 				break
 			}
 		}
+
 		basicInfoElements = append(basicInfoElements, map[string]any{
 			"tag": "div",
 			"text": map[string]any{
-				"content": pathContent,
+				"content": pathContent.String(),
 				"tag":     "lark_md",
 			},
 		})
@@ -424,18 +449,22 @@ func (f *Notifier) buildAlertMessage(results *models.DetectorInfo) map[string]an
 				},
 			})
 		}
+
 		if len(results.Keywords) > 0 {
-			keywordContent := "**Matched Keywords:** "
+			var keywordContent strings.Builder
+			keywordContent.WriteString("**Matched Keywords:** ")
 			for i, keyword := range results.Keywords {
 				if i > 0 {
-					keywordContent += ", "
+					keywordContent.WriteString(", ")
 				}
-				keywordContent += fmt.Sprintf("`%s`", keyword)
+
+				keywordContent.WriteString(fmt.Sprintf("`%s`", keyword))
 			}
+
 			violationElements = append(violationElements, map[string]any{
 				"tag": "div",
 				"text": map[string]any{
-					"content": keywordContent,
+					"content": keywordContent.String(),
 					"tag":     "lark_md",
 				},
 			})
@@ -480,6 +509,7 @@ func (f *Notifier) buildAlertMessage(results *models.DetectorInfo) map[string]an
 	}
 
 	template := "green"
+
 	title := "Website Content Detection Notice"
 	if results.IsIllegal {
 		template = "red"
@@ -506,6 +536,7 @@ func (f *Notifier) sendMessage(message LarkMessage) error {
 	if err != nil {
 		return fmt.Errorf("failed to serialize message: %w", err)
 	}
+
 	resp, err := f.HTTPClient.Post(
 		f.WebhookURL,
 		"application/json",
@@ -515,17 +546,25 @@ func (f *Notifier) sendMessage(message LarkMessage) error {
 		return fmt.Errorf("failed to send HTTP request: %w", err)
 	}
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
+
 	var larkResp LarkResponse
 	if err := json.Unmarshal(body, &larkResp); err != nil {
 		return fmt.Errorf("failed to parse response: %w", err)
 	}
+
 	if resp.StatusCode != http.StatusOK || larkResp.Code != 0 {
-		return fmt.Errorf("Lark webhook notification failed: HTTP status %d, Lark error code %d, error message: %s",
-			resp.StatusCode, larkResp.Code, larkResp.Msg)
+		return fmt.Errorf(
+			"Lark webhook notification failed: HTTP status %d, Lark error code %d, error message: %s",
+			resp.StatusCode,
+			larkResp.Code,
+			larkResp.Msg,
+		)
 	}
+
 	return nil
 }

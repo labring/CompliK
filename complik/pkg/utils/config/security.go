@@ -34,10 +34,12 @@ func GetSecureValue(value string) (string, error) {
 	// Check if this is an environment variable reference
 	if strings.HasPrefix(value, "${") && strings.HasSuffix(value, "}") {
 		envVar := strings.TrimSuffix(strings.TrimPrefix(value, "${"), "}")
+
 		envValue := os.Getenv(envVar)
 		if envValue == "" {
 			return "", fmt.Errorf("environment variable %s not set", envVar)
 		}
+
 		return envValue, nil
 	}
 
@@ -71,6 +73,7 @@ func EncryptValue(plaintext string) (string, error) {
 	}
 
 	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
+
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
@@ -123,5 +126,6 @@ func getEncryptionKey() []byte {
 		copy(padded, keyBytes)
 		return padded
 	}
+
 	return keyBytes[:32]
 }

@@ -17,6 +17,7 @@ package plugin
 import (
 	"context"
 	"errors"
+	"maps"
 	"sync"
 	"testing"
 	"time"
@@ -60,7 +61,11 @@ func (m *MockPlugin) Type() string {
 	return m.pluginType
 }
 
-func (m *MockPlugin) Start(ctx context.Context, cfg config.PluginConfig, eb *eventbus.EventBus) error {
+func (m *MockPlugin) Start(
+	ctx context.Context,
+	cfg config.PluginConfig,
+	eb *eventbus.EventBus,
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -69,6 +74,7 @@ func (m *MockPlugin) Start(ctx context.Context, cfg config.PluginConfig, eb *eve
 	}
 
 	m.startCalled = true
+
 	return m.startErr
 }
 
@@ -81,6 +87,7 @@ func (m *MockPlugin) Stop(ctx context.Context) error {
 	}
 
 	m.stopCalled = true
+
 	return m.stopErr
 }
 
@@ -106,9 +113,7 @@ var _ = Describe("PluginManager", func() {
 	BeforeEach(func() {
 		// Save original factories
 		oldFactories = make(map[string]func() Plugin)
-		for k, v := range PluginFactories {
-			oldFactories[k] = v
-		}
+		maps.Copy(oldFactories, PluginFactories)
 
 		// Clear factories
 		PluginFactories = make(map[string]func() Plugin)
@@ -377,7 +382,7 @@ var _ = Describe("PluginManager", func() {
 	Describe("Concurrency", func() {
 		It("should handle concurrent plugin loading safely", func() {
 			// Pre-register factories to avoid concurrent map writes
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				pluginName := "plugin" + string(rune('0'+i))
 				mockPlugin := NewMockPlugin(pluginName, "test")
 				localPlugin := mockPlugin // Capture for closure
@@ -385,7 +390,7 @@ var _ = Describe("PluginManager", func() {
 			}
 
 			var wg sync.WaitGroup
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				wg.Add(1)
 				go func(id int) {
 					defer wg.Done()

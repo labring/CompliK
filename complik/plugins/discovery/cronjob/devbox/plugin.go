@@ -78,6 +78,7 @@ func (p *DevboxPlugin) getDefaultDevboxConfig() DevboxConfig {
 
 func (p *DevboxPlugin) loadConfig(setting string) error {
 	p.log.Debug("Loading DevBox plugin configuration")
+
 	p.devboxConfig = p.getDefaultDevboxConfig()
 	if setting == "" {
 		p.log.Info("Using default DevBox configuration")
@@ -89,6 +90,7 @@ func (p *DevboxPlugin) loadConfig(setting string) error {
 	})
 
 	var configFromJSON DevboxConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse configuration, using defaults", logger.Fields{
@@ -96,6 +98,7 @@ func (p *DevboxPlugin) loadConfig(setting string) error {
 		})
 		return err
 	}
+
 	if configFromJSON.IntervalMinute > 0 {
 		p.devboxConfig.IntervalMinute = configFromJSON.IntervalMinute
 		p.log.Debug(
@@ -103,10 +106,12 @@ func (p *DevboxPlugin) loadConfig(setting string) error {
 			logger.Fields{"intervalMinute": configFromJSON.IntervalMinute},
 		)
 	}
+
 	if configFromJSON.AutoStart {
 		p.devboxConfig.AutoStart = configFromJSON.AutoStart
 		p.log.Debug("Set autoStart from config", logger.Fields{"autoStart": true})
 	}
+
 	if configFromJSON.StartTimeSecond > 0 {
 		p.devboxConfig.StartTimeSecond = configFromJSON.StartTimeSecond
 		p.log.Debug(
@@ -167,10 +172,12 @@ func (p *DevboxPlugin) Start(
 
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ticker.C:
 				p.log.Debug("Scheduled task trigger")
+
 				taskCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				p.executeTask(taskCtx, eventBus)
 				cancel()
@@ -182,6 +189,7 @@ func (p *DevboxPlugin) Start(
 	}()
 
 	p.log.Info("DevBox plugin started successfully")
+
 	return nil
 }
 
@@ -213,13 +221,16 @@ func (p *DevboxPlugin) executeTask(ctx context.Context, eventBus *eventbus.Event
 					"publishedCount": publishedCount,
 					"totalCount":     len(ingressList),
 				})
+
 				return
 			default:
 			}
 		}
+
 		eventBus.Publish(constants.DiscoveryTopic, eventbus.Event{
 			Payload: ingress,
 		})
+
 		publishedCount++
 	}
 }
@@ -230,6 +241,7 @@ func (p *DevboxPlugin) GetIngressList(ctx context.Context) ([]models.DiscoveryIn
 	})
 
 	var ingressList []models.DiscoveryInfo
+
 	ingresses, err := k8s.ClientSet.NetworkingV1().
 		Ingresses("").
 		List(ctx, metav1.ListOptions{
@@ -240,12 +252,14 @@ func (p *DevboxPlugin) GetIngressList(ctx context.Context) ([]models.DiscoveryIn
 			"labelSelector": DevboxManagerLabel,
 			"error":         err.Error(),
 		})
+
 		return nil, fmt.Errorf("failed to list ingresses: %w", err)
 	}
 
 	p.log.Debug("Retrieved DevBox ingresses", logger.Fields{
 		"ingressCount": len(ingresses.Items),
 	})
+
 	devboxGVR := schema.GroupVersionResource{
 		Group:    DevboxGroup,
 		Version:  DevboxVersion,
@@ -267,6 +281,7 @@ func (p *DevboxPlugin) GetIngressList(ctx context.Context) ([]models.DiscoveryIn
 			"resource": DevboxResource,
 			"error":    err.Error(),
 		})
+
 		return nil, fmt.Errorf("failed to list devboxes: %w", err)
 	}
 
@@ -274,16 +289,22 @@ func (p *DevboxPlugin) GetIngressList(ctx context.Context) ([]models.DiscoveryIn
 		"devboxCount": len(devboxes.Items),
 	})
 	statusMap := make(map[string]string, len(devboxes.Items))
+
 	runningCount := 0
 	for _, devbox := range devboxes.Items {
 		key := fmt.Sprintf("%s/%s", devbox.GetNamespace(), devbox.GetName())
-		if phase, found, err := unstructured.NestedString(devbox.Object, "status", "phase"); err == nil &&
+		if phase, found, err := unstructured.NestedString(
+			devbox.Object,
+			"status",
+			"phase",
+		); err == nil &&
 			found {
 			statusMap[key] = phase
 			p.log.Debug("DevBox status retrieved", logger.Fields{
 				"devbox": key,
 				"phase":  phase,
 			})
+
 			if phase == "Running" {
 				runningCount++
 			}
@@ -299,8 +320,10 @@ func (p *DevboxPlugin) GetIngressList(ctx context.Context) ([]models.DiscoveryIn
 		"totalDevBoxes": len(devboxes.Items),
 		"runningCount":  runningCount,
 	})
+
 	processedCount := 0
 	activeCount := 0
+
 	skippedCount := 0
 	for _, ingress := range ingresses.Items {
 		devboxName, ok := ingress.Labels[DevboxManagerLabel]
@@ -309,7 +332,9 @@ func (p *DevboxPlugin) GetIngressList(ctx context.Context) ([]models.DiscoveryIn
 				"ingress":  fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name),
 				"labelKey": DevboxManagerLabel,
 			})
+
 			skippedCount++
+
 			continue
 		}
 
@@ -344,6 +369,7 @@ func (p *DevboxPlugin) GetIngressList(ctx context.Context) ([]models.DiscoveryIn
 			}
 			ingressList = append(ingressList, ingressInfo)
 		}
+
 		processedCount++
 	}
 

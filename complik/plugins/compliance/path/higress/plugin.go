@@ -124,7 +124,9 @@ func (p *HigressPlugin) Start(
 				p.log.Info("Event subscription channel closed")
 				return nil
 			}
+
 			semaphore <- struct{}{}
+
 			go func(e eventbus.Event) {
 				defer func() { <-semaphore }()
 				defer func() {
@@ -141,6 +143,7 @@ func (p *HigressPlugin) Start(
 						"expected": "models.DiscoveryInfo",
 						"actual":   fmt.Sprintf("%T", e.Payload),
 					})
+
 					return
 				}
 
@@ -177,7 +180,9 @@ func (p *HigressPlugin) Start(
 			for range maxWorkers {
 				semaphore <- struct{}{}
 			}
+
 			p.log.Info("Higress plugin stopped successfully")
+
 			return nil
 		}
 	}
@@ -185,11 +190,14 @@ func (p *HigressPlugin) Start(
 
 func (p *HigressPlugin) Stop(ctx context.Context) error {
 	p.log.Info("Stopping Higress plugin")
+
 	if p.client != nil {
 		p.client.CloseIdleConnections()
 		p.log.Debug("HTTP client idle connections closed")
 	}
+
 	p.log.Info("Higress plugin stopped")
+
 	return nil
 }
 
@@ -217,6 +225,7 @@ func (p *HigressPlugin) parseConfig(config config.PluginConfig) error {
 		p.config.TimeRange = "5m"
 		p.log.Debug("Set default time range", logger.Fields{"timeRange": "5m"})
 	}
+
 	if p.config.App == "" {
 		p.config.App = "higress"
 		p.log.Debug("Set default app name", logger.Fields{"app": "higress"})
@@ -253,6 +262,7 @@ func (p *HigressPlugin) queryLogs(
 			"query": query,
 			"error": err.Error(),
 		})
+
 		return nil, fmt.Errorf("failed to send log query request: %w", err)
 	}
 	defer resp.Body.Close()
@@ -320,6 +330,7 @@ func (p *HigressPlugin) sendLogQuery(query string) (*http.Response, error) {
 			"url":   req.URL.String(),
 			"error": err.Error(),
 		})
+
 		return nil, fmt.Errorf("HTTP request error: %w", err)
 	}
 
@@ -329,6 +340,7 @@ func (p *HigressPlugin) sendLogQuery(query string) (*http.Response, error) {
 			"status":     resp.Status,
 		})
 		resp.Body.Close()
+
 		return nil, fmt.Errorf("response error, status code: %d", resp.StatusCode)
 	}
 
@@ -355,6 +367,7 @@ func (p *HigressPlugin) generateRequest(query string) (*http.Request, error) {
 			"url":   baseURL,
 			"error": err.Error(),
 		})
+
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
@@ -386,9 +399,11 @@ func (p *HigressPlugin) parseLogResponse(body io.Reader) ([]LogEntry, error) {
 		p.log.Debug("Empty response body")
 		return []LogEntry{}, nil
 	}
+
 	lines := strings.Split(string(bodyBytes), "\n")
 	validLines := 0
 	parseErrors := 0
+
 	logs := make([]LogEntry, 0, len(lines))
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -399,6 +414,7 @@ func (p *HigressPlugin) parseLogResponse(body io.Reader) ([]LogEntry, error) {
 		var entry LogEntry
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
 			parseErrors++
+
 			p.log.Debug("Failed to parse log line as JSON, using raw text", logger.Fields{
 				"line":  line,
 				"error": err.Error(),

@@ -39,13 +39,16 @@ type RotatingFileWriter struct {
 func (w *RotatingFileWriter) Write(p []byte) (n int, err error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
 	if w.shouldRotate(int64(len(p))) {
 		if err := w.rotate(); err != nil {
 			return 0, err
 		}
 	}
+
 	n, err = w.file.Write(p)
 	w.currentSize += int64(n)
+
 	return n, err
 }
 
@@ -57,6 +60,7 @@ func (w *RotatingFileWriter) Close() error {
 	if w.file != nil {
 		return w.file.Close()
 	}
+
 	return nil
 }
 
@@ -65,9 +69,11 @@ func (w *RotatingFileWriter) shouldRotate(writeSize int64) bool {
 	if w.maxSize > 0 && w.currentSize+writeSize > w.maxSize {
 		return true
 	}
+
 	if time.Since(w.lastRotate) > 24*time.Hour {
 		return true
 	}
+
 	return false
 }
 
@@ -113,6 +119,7 @@ func (w *RotatingFileWriter) openFile() error {
 
 	w.file = file
 	w.currentSize = info.Size()
+
 	return nil
 }
 
@@ -124,6 +131,7 @@ func (w *RotatingFileWriter) backupName() string {
 	name := base[:len(base)-len(ext)]
 
 	timestamp := time.Now().Format("20060102-150405")
+
 	return filepath.Join(dir, fmt.Sprintf("%s-%s%s", name, timestamp, ext))
 }
 
@@ -135,6 +143,7 @@ func (w *RotatingFileWriter) cleanupBackups() {
 	name := base[:len(base)-len(ext)]
 
 	pattern := filepath.Join(dir, fmt.Sprintf("%s-*%s", name, ext))
+
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return
@@ -145,17 +154,20 @@ func (w *RotatingFileWriter) cleanupBackups() {
 		path    string
 		modTime time.Time
 	}
+
 	files := make([]fileInfo, 0, len(matches))
 	for _, match := range matches {
 		info, err := os.Stat(match)
 		if err != nil {
 			continue
 		}
+
 		files = append(files, fileInfo{
 			path:    match,
 			modTime: info.ModTime(),
 		})
 	}
+
 	if w.maxBackups > 0 && len(files) > w.maxBackups {
 		// Sort by time and keep only the newest backups
 		for i := range len(files) - w.maxBackups {
@@ -204,5 +216,6 @@ func (mw *MultiWriter) Write(p []byte) (n int, err error) {
 			return n, err
 		}
 	}
+
 	return len(p), nil
 }

@@ -82,7 +82,9 @@ func (p *BrowserPlugin) loadConfig(setting string) error {
 		p.log.Info("Using default browser configuration")
 		return nil
 	}
+
 	var configFromJSON BrowserConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse config, using defaults", logger.Fields{
@@ -94,15 +96,19 @@ func (p *BrowserPlugin) loadConfig(setting string) error {
 	if configFromJSON.CollectorTimeoutSecond > 0 {
 		p.browserConfig.CollectorTimeoutSecond = configFromJSON.CollectorTimeoutSecond
 	}
+
 	if configFromJSON.MaxWorkers > 0 {
 		p.browserConfig.MaxWorkers = configFromJSON.MaxWorkers
 	}
+
 	if configFromJSON.BrowserNumber > 0 {
 		p.browserConfig.BrowserNumber = configFromJSON.BrowserNumber
 	}
+
 	if configFromJSON.BrowserTimeoutMinute > 0 {
 		p.browserConfig.BrowserTimeoutMinute = configFromJSON.BrowserTimeoutMinute
 	}
+
 	return nil
 }
 
@@ -127,6 +133,7 @@ func (p *BrowserPlugin) Start(
 		time.Duration(p.browserConfig.BrowserTimeoutMinute)*time.Minute,
 	)
 	subscribe := eventBus.Subscribe(constants.DiscoveryTopic)
+
 	semaphore := make(chan struct{}, p.browserConfig.MaxWorkers)
 	for {
 		select {
@@ -135,7 +142,9 @@ func (p *BrowserPlugin) Start(
 				p.log.Info("Event subscription channel closed")
 				return nil
 			}
+
 			semaphore <- struct{}{}
+
 			go func(e eventbus.Event) {
 				defer func() { <-semaphore }()
 				defer func() {
@@ -146,20 +155,25 @@ func (p *BrowserPlugin) Start(
 						})
 					}
 				}()
+
 				ingress, ok := e.Payload.(models.DiscoveryInfo)
 				if !ok {
 					p.log.Error("Invalid event payload type", logger.Fields{
 						"expected": "models.DiscoveryInfo",
 						"actual":   fmt.Sprintf("%T", e.Payload),
 					})
+
 					return
 				}
+
 				var result *models.CollectorInfo
+
 				taskCtx, cancel := context.WithTimeout(
 					ctx,
 					time.Duration(p.browserConfig.CollectorTimeoutSecond)*time.Second,
 				)
 				taskCtx = context.WithValue(taskCtx, "start_time", time.Now())
+
 				defer cancel()
 
 				p.log.Debug("Processing discovery", logger.Fields{
@@ -227,9 +241,11 @@ func (p *BrowserPlugin) Start(
 
 func (p *BrowserPlugin) Stop(ctx context.Context) error {
 	p.log.Info("Stopping browser plugin")
+
 	if p.browserPool != nil {
 		p.browserPool.Close()
 	}
+
 	return nil
 }
 
@@ -237,6 +253,7 @@ func (p *BrowserPlugin) shouldSkipError(err error) bool {
 	if err == nil {
 		return false
 	}
+
 	skipPatterns := []string{
 		"ERR_HTTP_RESPONSE_CODE_FAILURE",
 		"ERR_INVALID_AUTH_CREDENTIALS",
@@ -258,5 +275,6 @@ func (p *BrowserPlugin) shouldSkipError(err error) bool {
 			return true
 		}
 	}
+
 	return false
 }

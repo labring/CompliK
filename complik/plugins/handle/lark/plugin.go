@@ -81,6 +81,7 @@ type LarkConfig struct {
 
 func (p *LarkPlugin) getDefaultConfig() LarkConfig {
 	b := false
+
 	return LarkConfig{
 		Region:           "UNKNOWN",
 		EnabledWhitelist: &b,
@@ -92,10 +93,13 @@ func (p *LarkPlugin) getDefaultConfig() LarkConfig {
 
 func (p *LarkPlugin) loadConfig(setting string) error {
 	p.larkConfig = p.getDefaultConfig()
+
 	if setting == "" {
 		return errors.New("configuration cannot be empty")
 	}
+
 	var configFromJSON LarkConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse config", logger.Fields{
@@ -103,23 +107,29 @@ func (p *LarkPlugin) loadConfig(setting string) error {
 		})
 		return err
 	}
+
 	if configFromJSON.Webhook == "" {
 		return errors.New("webhook configuration cannot be empty")
 	}
+
 	if configFromJSON.EnabledWhitelist != nil && *configFromJSON.EnabledWhitelist {
 		p.larkConfig.EnabledWhitelist = configFromJSON.EnabledWhitelist
 		if configFromJSON.Host == "" {
 			return errors.New("host configuration cannot be empty")
 		}
+
 		if configFromJSON.Port == "" {
 			return errors.New("port configuration cannot be empty")
 		}
+
 		if configFromJSON.Username == "" {
 			return errors.New("username configuration cannot be empty")
 		}
+
 		if configFromJSON.Password == "" {
 			return errors.New("password configuration cannot be empty")
 		}
+
 		p.larkConfig.Host = configFromJSON.Host
 		p.larkConfig.Port = configFromJSON.Port
 		p.larkConfig.Username = configFromJSON.Username
@@ -130,22 +140,28 @@ func (p *LarkPlugin) loadConfig(setting string) error {
 			p.larkConfig.Password = configFromJSON.Password
 		}
 	}
+
 	if configFromJSON.HostTimeoutHour > 0 {
 		p.larkConfig.HostTimeoutHour = configFromJSON.HostTimeoutHour
 	}
+
 	if configFromJSON.DatabaseName != "" {
 		p.larkConfig.DatabaseName = configFromJSON.DatabaseName
 	}
+
 	if configFromJSON.TableName != "" {
 		p.larkConfig.TableName = configFromJSON.TableName
 	}
+
 	if configFromJSON.Charset != "" {
 		p.larkConfig.Charset = configFromJSON.Charset
 	}
+
 	p.larkConfig.Webhook = configFromJSON.Webhook
 	if configFromJSON.Region != "" {
 		p.larkConfig.Region = configFromJSON.Region
 	}
+
 	return nil
 }
 
@@ -161,25 +177,31 @@ func (p *LarkPlugin) initDB() (db *gorm.DB, err error) {
 			},
 		),
 	}
+
 	db, err = gorm.Open(mysql.Open(serverDSN), dbConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MySQL server: %w", err)
 	}
+
 	createDBSQL := fmt.Sprintf(
 		"CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET %s COLLATE %s_unicode_ci",
 		p.larkConfig.DatabaseName,
 		p.larkConfig.Charset,
 		p.larkConfig.Charset,
 	)
+
 	err = db.Exec(createDBSQL).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to create database: %w", err)
 	}
+
 	dbDSN := p.buildDSN(true)
+
 	db, err = gorm.Open(mysql.Open(dbDSN), dbConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
+
 	return db, nil
 }
 
@@ -188,6 +210,7 @@ func (p *LarkPlugin) buildDSN(includeDB bool) string {
 	if includeDB {
 		dbPart = "/" + p.larkConfig.DatabaseName
 	}
+
 	return fmt.Sprintf("%s:%s@tcp(%s:%s)%s?charset=%s&parseTime=True&loc=Local",
 		p.larkConfig.Username,
 		p.larkConfig.Password,
@@ -207,22 +230,27 @@ func (p *LarkPlugin) Start(
 	if err != nil {
 		return err
 	}
+
 	if *p.larkConfig.EnabledWhitelist {
 		var db *gorm.DB
 		if db, err = p.initDB(); err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}
+
 		if err := db.AutoMigrate(&whitelist.Whitelist{}); err != nil {
 			return fmt.Errorf("database migration failed: %w", err)
 		}
+
 		p.notifier = NewNotifier(
 			p.larkConfig.Webhook,
 			db,
 			time.Duration(p.larkConfig.HostTimeoutHour)*time.Hour,
 			p.larkConfig.Region,
 		)
+
 		var count int64
 		db.Model(&whitelist.Whitelist{}).Count(&count)
+
 		if count == 0 {
 			testData := &whitelist.Whitelist{
 				Region:    "cn-beijing",
@@ -245,6 +273,7 @@ func (p *LarkPlugin) Start(
 	} else {
 		p.notifier = NewNotifier(p.larkConfig.Webhook, nil, 0, "")
 	}
+
 	subscribe := eventBus.Subscribe(constants.DetectorTopic)
 	go func() {
 		defer func() {
@@ -254,6 +283,7 @@ func (p *LarkPlugin) Start(
 				})
 			}
 		}()
+
 		for {
 			select {
 			case event, ok := <-subscribe:
@@ -261,15 +291,19 @@ func (p *LarkPlugin) Start(
 					p.log.Info("Event subscription channel closed")
 					return
 				}
+
 				result, ok := event.Payload.(*models.DetectorInfo)
 				if !ok {
 					p.log.Error("Invalid event payload type", logger.Fields{
 						"expected": "*models.DetectorInfo",
 						"actual":   fmt.Sprintf("%T", event.Payload),
 					})
+
 					continue
 				}
+
 				result.Region = p.larkConfig.Region
+
 				err := p.notifier.SendAnalysisNotification(result)
 				if err != nil {
 					p.log.Error("Failed to send notification", logger.Fields{
@@ -282,6 +316,7 @@ func (p *LarkPlugin) Start(
 			}
 		}
 	}()
+
 	return nil
 }
 

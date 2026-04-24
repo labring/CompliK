@@ -70,6 +70,7 @@ type CompleteConfig struct {
 
 func (p *CompletePlugin) getDefaultCompleteConfig() CompleteConfig {
 	b := false
+
 	return CompleteConfig{
 		IntervalMinute:  7 * 24 * 60,
 		AutoStart:       &b,
@@ -79,6 +80,7 @@ func (p *CompletePlugin) getDefaultCompleteConfig() CompleteConfig {
 
 func (p *CompletePlugin) loadConfig(setting string) error {
 	p.log.Debug("Loading Complete plugin configuration")
+
 	p.completeConfig = p.getDefaultCompleteConfig()
 	if setting == "" {
 		p.log.Info("Using default Complete configuration")
@@ -90,6 +92,7 @@ func (p *CompletePlugin) loadConfig(setting string) error {
 	})
 
 	var configFromJSON CompleteConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse configuration, using defaults", logger.Fields{
@@ -97,6 +100,7 @@ func (p *CompletePlugin) loadConfig(setting string) error {
 		})
 		return err
 	}
+
 	if configFromJSON.IntervalMinute > 0 {
 		p.completeConfig.IntervalMinute = configFromJSON.IntervalMinute
 		p.log.Debug(
@@ -104,6 +108,7 @@ func (p *CompletePlugin) loadConfig(setting string) error {
 			logger.Fields{"intervalMinute": configFromJSON.IntervalMinute},
 		)
 	}
+
 	if configFromJSON.AutoStart != nil {
 		p.completeConfig.AutoStart = configFromJSON.AutoStart
 		p.log.Debug(
@@ -111,6 +116,7 @@ func (p *CompletePlugin) loadConfig(setting string) error {
 			logger.Fields{"autoStart": *configFromJSON.AutoStart},
 		)
 	}
+
 	if configFromJSON.StartTimeSecond > 0 {
 		p.completeConfig.StartTimeSecond = configFromJSON.StartTimeSecond
 		p.log.Debug(
@@ -165,10 +171,12 @@ func (p *CompletePlugin) Start(
 
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ticker.C:
 				p.log.Debug("Scheduled task trigger")
+
 				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 				p.executeTask(ctx, eventBus)
 				cancel()
@@ -180,6 +188,7 @@ func (p *CompletePlugin) Start(
 	}()
 
 	p.log.Info("Complete plugin started successfully")
+
 	return nil
 }
 
@@ -206,11 +215,13 @@ func (p *CompletePlugin) executeTask(ctx context.Context, eventBus *eventbus.Eve
 				"publishedCount": i,
 				"totalCount":     len(ingressList),
 			})
+
 			return
 		default:
 			eventBus.Publish(constants.DiscoveryTopic, eventbus.Event{
 				Payload: ingress,
 			})
+
 			publishedCount++
 		}
 	}
@@ -237,20 +248,26 @@ func (p *CompletePlugin) GetIngressList(ctx context.Context) ([]models.Discovery
 
 	p.log.Debug("Starting parallel fetch of ingresses and endpoint slices")
 	wg.Add(2)
+
 	go func() {
 		defer wg.Done()
+
 		p.log.Debug("Fetching ingresses from all namespaces")
+
 		ingressItems, ingressErr = k8s.ClientSet.NetworkingV1().
 			Ingresses("").
 			List(ctx, metav1.ListOptions{})
 	}()
 	go func() {
 		defer wg.Done()
+
 		p.log.Debug("Fetching endpoint slices from all namespaces")
+
 		endpointSlicesList, endpointSlicesErr = k8s.ClientSet.DiscoveryV1().
 			EndpointSlices("").
 			List(ctx, metav1.ListOptions{})
 	}()
+
 	wg.Wait()
 
 	if ingressErr != nil {
@@ -259,6 +276,7 @@ func (p *CompletePlugin) GetIngressList(ctx context.Context) ([]models.Discovery
 		})
 		return nil, fmt.Errorf("failed to get Ingress list: %w", ingressErr)
 	}
+
 	if endpointSlicesErr != nil {
 		p.log.Error("Failed to get endpoint slices list", logger.Fields{
 			"error": endpointSlicesErr.Error(),
@@ -296,6 +314,7 @@ func (p *CompletePlugin) deduplicateIngressesByPath(
 				for _, path := range rule.HTTP.Paths {
 					pathKey := fmt.Sprintf("%s%s", rule.Host, path.Path)
 					pathCount++
+
 					if existingIngress, exists := pathMap[pathKey]; !exists {
 						pathMap[pathKey] = ingress
 						p.log.Debug("Added new path mapping", logger.Fields{
@@ -306,8 +325,12 @@ func (p *CompletePlugin) deduplicateIngressesByPath(
 					} else if ingress.CreationTimestamp.After(existingIngress.CreationTimestamp.Time) {
 						pathMap[pathKey] = ingress
 						p.log.Debug("Updated path mapping with newer ingress", logger.Fields{
-							"pathKey":      pathKey,
-							"oldIngress":   fmt.Sprintf("%s/%s", existingIngress.Namespace, existingIngress.Name),
+							"pathKey": pathKey,
+							"oldIngress": fmt.Sprintf(
+								"%s/%s",
+								existingIngress.Namespace,
+								existingIngress.Name,
+							),
 							"newIngress":   fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name),
 							"oldTimestamp": existingIngress.CreationTimestamp.Time,
 							"newTimestamp": ingress.CreationTimestamp.Time,
@@ -323,6 +346,7 @@ func (p *CompletePlugin) deduplicateIngressesByPath(
 		"uniquePaths":    len(pathMap),
 		"duplicatePaths": pathCount - len(pathMap),
 	})
+
 	uniqueIngressMap := make(map[string]networkingv1.Ingress)
 	for _, ingress := range pathMap {
 		key := fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name)
@@ -362,14 +386,17 @@ func (p *CompletePlugin) processIngressAndEndpointSlices(
 	for i := range endpointSlicesItems {
 		endpointSlice := &endpointSlicesItems[i]
 		namespace := endpointSlice.Namespace
+
 		serviceName, exists := endpointSlice.Labels["kubernetes.io/service-name"]
 		if !exists {
 			skippedEndpointSlices++
 			continue
 		}
+
 		if endpointSlicesMap[namespace] == nil {
 			endpointSlicesMap[namespace] = make(map[string][]*discoveryv1.EndpointSlice)
 		}
+
 		endpointSlicesMap[namespace][serviceName] = append(
 			endpointSlicesMap[namespace][serviceName],
 			endpointSlice,
@@ -384,12 +411,15 @@ func (p *CompletePlugin) processIngressAndEndpointSlices(
 	})
 	// Estimate result size and filter ns- namespaces
 	estimatedSize := 0
+
 	validIngresses := 0
 	for _, ingress := range ingressItems {
 		if !strings.HasPrefix(ingress.Namespace, "ns-") {
 			continue
 		}
+
 		validIngresses++
+
 		for _, rule := range ingress.Spec.Rules {
 			if rule.HTTP != nil {
 				estimatedSize += len(rule.HTTP.Paths)

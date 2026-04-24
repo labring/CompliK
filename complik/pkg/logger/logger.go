@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -187,6 +188,7 @@ func New() Logger {
 func (l *StandardLogger) SetLevel(level LogLevel) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	l.level = level
 }
 
@@ -194,6 +196,7 @@ func (l *StandardLogger) SetLevel(level LogLevel) {
 func (l *StandardLogger) SetOutput(w io.Writer) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
 	l.output = w
 }
 
@@ -208,12 +211,9 @@ func (l *StandardLogger) WithFields(fields Fields) Logger {
 	defer l.mu.RUnlock()
 
 	newFields := make(Fields, len(l.fields)+len(fields))
-	for k, v := range l.fields {
-		newFields[k] = v
-	}
-	for k, v := range fields {
-		newFields[k] = v
-	}
+	maps.Copy(newFields, l.fields)
+
+	maps.Copy(newFields, fields)
 
 	return &StandardLogger{
 		level:      l.level,
@@ -241,15 +241,14 @@ func (l *StandardLogger) WithContext(ctx context.Context) Logger {
 		timeFormat: l.timeFormat,
 	}
 
-	for k, v := range l.fields {
-		newLogger.fields[k] = v
-	}
+	maps.Copy(newLogger.fields, l.fields)
 
 	// Extract request ID and trace ID from context
 	if ctx != nil {
 		if requestID := ctx.Value("request_id"); requestID != nil {
 			newLogger.fields["request_id"] = requestID
 		}
+
 		if traceID := ctx.Value("trace_id"); traceID != nil {
 			newLogger.fields["trace_id"] = traceID
 		}
@@ -303,13 +302,10 @@ func (l *StandardLogger) log(level LogLevel, msg string, extraFields ...Fields) 
 
 	// Merge fields
 	fields := make(Fields, len(l.fields))
-	for k, v := range l.fields {
-		fields[k] = v
-	}
+	maps.Copy(fields, l.fields)
+
 	for _, f := range extraFields {
-		for k, v := range f {
-			fields[k] = v
-		}
+		maps.Copy(fields, f)
 	}
 
 	// Add base fields
@@ -344,6 +340,7 @@ func (l *StandardLogger) formatJSON(fields Fields) string {
 	if err != nil {
 		return fmt.Sprintf(`{"error":"failed to marshal log: %v"}\n`, err)
 	}
+
 	return string(data) + "\n"
 }
 
@@ -366,6 +363,7 @@ func (l *StandardLogger) formatText(level LogLevel, msg string, fields Fields) s
 	} else {
 		builder.WriteString(fmt.Sprintf("[%-5s]", levelStr))
 	}
+
 	builder.WriteString(" ")
 
 	// Caller information
@@ -387,17 +385,21 @@ func (l *StandardLogger) formatText(level LogLevel, msg string, fields Fields) s
 
 	if len(fields) > 0 {
 		builder.WriteString(" | ")
+
 		first := true
 		for k, v := range fields {
 			if !first {
 				builder.WriteString(", ")
 			}
+
 			builder.WriteString(fmt.Sprintf("%s=%v", k, v))
+
 			first = false
 		}
 	}
 
 	builder.WriteString("\n")
+
 	return builder.String()
 }
 

@@ -85,6 +85,7 @@ func (p *DatabasePlugin) loadConfig(setting string) error {
 	}
 
 	var configFromJSON DatabaseConfig
+
 	err := json.Unmarshal([]byte(setting), &configFromJSON)
 	if err != nil {
 		p.log.Error("Failed to parse configuration", logger.Fields{
@@ -92,15 +93,19 @@ func (p *DatabasePlugin) loadConfig(setting string) error {
 		})
 		return err
 	}
+
 	if configFromJSON.Host == "" {
 		return errors.New("host configuration cannot be empty")
 	}
+
 	if configFromJSON.Port == "" {
 		return errors.New("port configuration cannot be empty")
 	}
+
 	if configFromJSON.Username == "" {
 		return errors.New("username configuration cannot be empty")
 	}
+
 	if configFromJSON.Password == "" {
 		return errors.New("password configuration cannot be empty")
 	}
@@ -122,12 +127,15 @@ func (p *DatabasePlugin) loadConfig(setting string) error {
 	if configFromJSON.Region != "" {
 		p.databaseConfig.Region = configFromJSON.Region
 	}
+
 	if configFromJSON.DatabaseName != "" {
 		p.databaseConfig.DatabaseName = configFromJSON.DatabaseName
 	}
+
 	if configFromJSON.Charset != "" {
 		p.databaseConfig.Charset = configFromJSON.Charset
 	}
+
 	if configFromJSON.TableName != "" {
 		p.databaseConfig.TableName = configFromJSON.TableName
 	}
@@ -179,6 +187,7 @@ func (p *DatabasePlugin) Start(
 	}
 
 	p.log.Debug("Initializing database connection")
+
 	if err := p.initDB(); err != nil {
 		p.log.Error("Failed to initialize database", logger.Fields{
 			"error": err.Error(),
@@ -187,15 +196,18 @@ func (p *DatabasePlugin) Start(
 	}
 
 	p.log.Debug("Running database migration")
+
 	if err := p.db.AutoMigrate(&DetectorRecord{}); err != nil {
 		p.log.Error("Database migration failed", logger.Fields{
 			"error": err.Error(),
 			"table": p.databaseConfig.TableName,
 		})
+
 		return fmt.Errorf("database migration failed: %w", err)
 	}
 
 	p.log.Info("Database migration completed successfully")
+
 	subscribe := eventBus.Subscribe(constants.DetectorTopic)
 	p.log.Debug("Subscribed to detector topic", logger.Fields{
 		"topic": constants.DetectorTopic,
@@ -226,6 +238,7 @@ func (p *DatabasePlugin) Start(
 						"expected": "*models.DetectorInfo",
 						"actual":   fmt.Sprintf("%T", event.Payload),
 					})
+
 					continue
 				}
 
@@ -300,10 +313,12 @@ func (p *DatabasePlugin) initDB() error {
 			},
 		),
 	}
+
 	db, err := gorm.Open(mysql.Open(serverDSN), dbConfig)
 	if err != nil {
 		return fmt.Errorf("failed to connect to MySQL server: %w", err)
 	}
+
 	err = db.Exec(
 		fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s CHARACTER SET %s COLLATE %s_unicode_ci",
 			p.databaseConfig.DatabaseName,
@@ -313,11 +328,14 @@ func (p *DatabasePlugin) initDB() error {
 	if err != nil {
 		return fmt.Errorf("failed to create database: %w", err)
 	}
+
 	dbDSN := p.buildDSN(true)
+
 	db, err = gorm.Open(mysql.Open(dbDSN), dbConfig)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
+
 	p.db = db
 
 	p.log.Info("Database initialized successfully", logger.Fields{
@@ -332,6 +350,7 @@ func (p *DatabasePlugin) buildDSN(includeDB bool) string {
 	if includeDB {
 		dbPart = "/" + p.databaseConfig.DatabaseName
 	}
+
 	return fmt.Sprintf("%s:%s@tcp(%s:%s)%s?charset=%s&parseTime=True&loc=Local",
 		p.databaseConfig.Username,
 		p.databaseConfig.Password,
@@ -347,14 +366,17 @@ func (p *DatabasePlugin) saveResults(result *models.DetectorInfo) error {
 		p.log.Error("DatabasePlugin instance is nil")
 		return errors.New("DatabasePlugin instance is nil")
 	}
+
 	if p.db == nil {
 		p.log.Error("Database connection not initialized")
 		return errors.New("database connection not initialized")
 	}
+
 	if result == nil {
 		p.log.Error("Detection result is nil")
 		return errors.New("detection result is nil")
 	}
+
 	record := DetectorRecord{
 		DiscoveryName: result.DiscoveryName,
 		CollectorName: result.CollectorName,
@@ -372,18 +394,21 @@ func (p *DatabasePlugin) saveResults(result *models.DetectorInfo) error {
 			record.Path = &pathStr
 		}
 	}
+
 	if len(result.Keywords) > 0 {
 		if keywordsJSON, err := json.Marshal(result.Keywords); err == nil {
 			keywordsStr := string(keywordsJSON)
 			record.Keywords = &keywordsStr
 		}
 	}
+
 	if err := p.db.Create(&record).Error; err != nil {
 		p.log.Error("Failed to insert record", logger.Fields{
 			"error":     err.Error(),
 			"host":      record.Host,
 			"namespace": record.Namespace,
 		})
+
 		return err
 	}
 

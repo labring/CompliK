@@ -38,9 +38,11 @@ func main() {
 	os.Setenv("GOTRACEBACK", "all")
 
 	logger.Init()
+
 	log := logger.GetLogger()
 
 	configPath := flag.String("config", "", "path to configuration file")
+
 	flag.Parse()
 
 	log.Info("Starting CompliK", logger.Fields{

@@ -89,10 +89,12 @@ func (p *EndPointInformerPlugin) Start(
 	})
 
 	p.stopChan = make(chan struct{})
+
 	p.eventBus = eventBus
 	go p.startInformerWatch(ctx)
 
 	p.log.Info("EndPointSlice informer plugin started successfully")
+
 	return nil
 }
 
@@ -103,6 +105,7 @@ func (p *EndPointInformerPlugin) startInformerWatch(ctx context.Context) {
 
 	factory := informers.NewSharedInformerFactory(k8s.ClientSet, 60*time.Second)
 	endpointSliceInformer := factory.Discovery().V1().EndpointSlices().Informer()
+
 	_, err := endpointSliceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			endpointSlice, ok := obj.(*discoveryv1.EndpointSlice)
@@ -121,15 +124,19 @@ func (p *EndPointInformerPlugin) startInformerWatch(ctx context.Context) {
 						"name":      endpointSlice.Name,
 						"error":     err.Error(),
 					})
+
 					return
 				}
+
 				if info == nil {
 					p.log.Debug("EndpointSlice info is nil, skipping", logger.Fields{
 						"namespace": endpointSlice.Namespace,
 						"name":      endpointSlice.Name,
 					})
+
 					return
 				}
+
 				if len(info.MatchedIngresses) > 0 {
 					changeCounter++
 					p.logEndpointSliceEvent("ADD", changeCounter, info)
@@ -156,12 +163,14 @@ func (p *EndPointInformerPlugin) startInformerWatch(ctx context.Context) {
 					"object_type": fmt.Sprintf("%T", oldObj),
 				})
 			}
+
 			newEndpointSlice, ok := newObj.(*discoveryv1.EndpointSlice)
 			if !ok {
 				p.log.Error("Failed to cast object to EndpointSlice", logger.Fields{
 					"object_type": fmt.Sprintf("%T", newObj),
 				})
 			}
+
 			p.log.Debug("EndpointSlice UPDATE event received", logger.Fields{
 				"namespace": newEndpointSlice.Namespace,
 				"name":      newEndpointSlice.Name,
@@ -175,15 +184,19 @@ func (p *EndPointInformerPlugin) startInformerWatch(ctx context.Context) {
 						"name":      newEndpointSlice.Name,
 						"error":     err.Error(),
 					})
+
 					return
 				}
+
 				if info == nil {
 					p.log.Debug("No significant changes detected in EndpointSlice", logger.Fields{
 						"namespace": newEndpointSlice.Namespace,
 						"name":      newEndpointSlice.Name,
 					})
+
 					return
 				}
+
 				changeCounter++
 				p.logEndpointSliceEvent("UPDATE", changeCounter, info)
 				p.handleEndpointSliceEvent(info)
@@ -204,28 +217,34 @@ func (p *EndPointInformerPlugin) startInformerWatch(ctx context.Context) {
 	factory.Start(p.stopChan)
 
 	p.log.Debug("Waiting for cache sync")
+
 	if !cache.WaitForCacheSync(p.stopChan, endpointSliceInformer.HasSynced) {
 		p.log.Error("Failed to wait for caches to sync")
 		return
 	}
 
 	p.log.Info("EndpointSlice informer watcher started successfully")
+
 	select {
 	case <-ctx.Done():
 		p.log.Info("EndpointSlice watcher stopping due to context cancellation")
 	case <-p.stopChan:
 		p.log.Info("EndpointSlice watcher stopping due to stop signal")
 	}
+
 	p.log.Info("EndpointSlice informer watcher stopped")
 }
 
 func (p *EndPointInformerPlugin) Stop(ctx context.Context) error {
 	p.log.Info("Stopping EndPointSlice informer plugin")
+
 	if p.stopChan != nil {
 		close(p.stopChan)
 		p.log.Debug("Stop channel closed")
 	}
+
 	p.log.Info("EndPointSlice informer plugin stopped")
+
 	return nil
 }
 
@@ -250,6 +269,7 @@ func (p *EndPointInformerPlugin) extractEndpointSliceInfo(
 			"name":      endpointSlice.Name,
 			"labelKey":  discoveryv1.LabelServiceName,
 		})
+
 		return nil, fmt.Errorf(
 			"EndpointSlice %s/%s missing service name label",
 			endpointSlice.Namespace,
@@ -270,13 +290,16 @@ func (p *EndPointInformerPlugin) extractEndpointSliceInfo(
 			"error":       err.Error(),
 		})
 	}
+
 	if len(matchedIngresses) == 0 {
 		p.log.Debug("No matching ingresses found", logger.Fields{
 			"namespace":   endpointSlice.Namespace,
 			"serviceName": serviceName,
 		})
+
 		return nil, nil
 	}
+
 	info := &EndpointSliceInfo{
 		Namespace:        endpointSlice.Namespace,
 		ServiceName:      serviceName,
@@ -310,6 +333,7 @@ func (p *EndPointInformerPlugin) extractEndpointSliceInfo(
 			"namespace":   endpointSlice.Namespace,
 			"serviceName": serviceName,
 		})
+
 		return nil, nil
 	}
 
@@ -335,6 +359,7 @@ func (p *EndPointInformerPlugin) logEndpointSliceEvent(
 		if host == "" {
 			host = "*"
 		}
+
 		p.log.Info("Matched ingress found", logger.Fields{
 			"eventCounter": counter,
 			"ingressIndex": i + 1,
@@ -367,8 +392,10 @@ func (p *EndPointInformerPlugin) hasEndpointSliceChanged(
 			"name":      newEndpointSlice.Name,
 			"error":     err.Error(),
 		})
+
 		return nil, err
 	}
+
 	oldInfo, err := p.extractEndpointSliceInfo(oldEndpointSlice)
 	if err != nil {
 		p.log.Error("Failed to extract old EndpointSlice info", logger.Fields{
@@ -376,8 +403,10 @@ func (p *EndPointInformerPlugin) hasEndpointSliceChanged(
 			"name":      oldEndpointSlice.Name,
 			"error":     err.Error(),
 		})
+
 		return nil, err
 	}
+
 	if newInfo == nil || len(newInfo.MatchedIngresses) == 0 {
 		p.log.Debug("No matching ingresses for new EndpointSlice, skipping change detection")
 		return nil, nil
@@ -395,6 +424,7 @@ func (p *EndPointInformerPlugin) hasEndpointSliceChanged(
 			"oldCount":    oldInfo.ReadyCount,
 			"newCount":    newInfo.ReadyCount,
 		})
+
 		return newInfo, nil
 	}
 	// Compare address changes when counts are equal
@@ -402,6 +432,7 @@ func (p *EndPointInformerPlugin) hasEndpointSliceChanged(
 		oldAddressSet := p.sliceToSet(oldInfo.ReadyAddresses)
 		newAddressSet := p.sliceToSet(newInfo.ReadyAddresses)
 		addedAddresses := p.setDifference(newAddressSet, oldAddressSet)
+
 		removedAddresses := p.setDifference(oldAddressSet, newAddressSet)
 		if len(addedAddresses) > 0 || len(removedAddresses) > 0 {
 			p.log.Info("EndpointSlice addresses changed", logger.Fields{
@@ -410,13 +441,16 @@ func (p *EndPointInformerPlugin) hasEndpointSliceChanged(
 				"addedAddresses":   addedAddresses,
 				"removedAddresses": removedAddresses,
 			})
+
 			return newInfo, nil
 		}
+
 		p.log.Debug("No address changes detected despite same count", logger.Fields{
 			"namespace":    newInfo.Namespace,
 			"serviceName":  newInfo.ServiceName,
 			"addressCount": len(newInfo.ReadyAddresses),
 		})
+
 		return nil, nil
 	}
 
@@ -426,6 +460,7 @@ func (p *EndPointInformerPlugin) hasEndpointSliceChanged(
 		"oldCount":    len(oldInfo.ReadyAddresses),
 		"newCount":    len(newInfo.ReadyAddresses),
 	})
+
 	return newInfo, nil
 }
 
@@ -434,6 +469,7 @@ func (p *EndPointInformerPlugin) sliceToSet(slice []string) map[string]bool {
 	for _, item := range slice {
 		set[item] = true
 	}
+
 	return set
 }
 
@@ -444,6 +480,7 @@ func (p *EndPointInformerPlugin) setDifference(set1, set2 map[string]bool) []str
 			diff = append(diff, item)
 		}
 	}
+
 	return diff
 }
 
@@ -478,6 +515,7 @@ func (p *EndPointInformerPlugin) checkServiceHasIngress(
 			"namespace": namespace,
 			"error":     err.Error(),
 		})
+
 		return nil, fmt.Errorf("failed to list ingresses in namespace %s: %w", namespace, err)
 	}
 
@@ -485,7 +523,9 @@ func (p *EndPointInformerPlugin) checkServiceHasIngress(
 		"namespace":    namespace,
 		"ingressCount": len(ingressItems.Items),
 	})
+
 	var matchedIngresses []IngressInfo
+
 	matchedPaths := 0
 
 	for _, ingress := range ingressItems.Items {
@@ -493,9 +533,11 @@ func (p *EndPointInformerPlugin) checkServiceHasIngress(
 			if rule.HTTP == nil {
 				continue
 			}
+
 			for _, path := range rule.HTTP.Paths {
 				if path.Backend.Service != nil && path.Backend.Service.Name == serviceName {
 					matchedPaths++
+
 					ingressInfo := IngressInfo{
 						Name:      ingress.Name,
 						Namespace: ingress.Namespace,
@@ -505,9 +547,11 @@ func (p *EndPointInformerPlugin) checkServiceHasIngress(
 					if ingressInfo.Path == "" {
 						ingressInfo.Path = "/"
 					}
+
 					if ingressInfo.Host == "" {
 						ingressInfo.Host = "*"
 					}
+
 					p.log.Debug("Found matching ingress path", logger.Fields{
 						"ingress":     fmt.Sprintf("%s/%s", ingress.Namespace, ingress.Name),
 						"host":        ingressInfo.Host,

@@ -58,7 +58,7 @@ var _ = Describe("EventBus", func() {
 		It("should create a subscription and return a channel", func() {
 			ch := eb.Subscribe("test-topic")
 			Expect(ch).NotTo(BeNil())
-			Expect(cap(ch)).To(Equal(100))
+			Expect(ch).To(HaveCap(100))
 		})
 
 		It("should allow multiple subscriptions to the same topic", func() {
@@ -231,7 +231,7 @@ var _ = Describe("EventBus", func() {
 			var wg sync.WaitGroup
 			channels := make([]EventChan, 100)
 
-			for i := 0; i < 100; i++ {
+			for i := range 100 {
 				wg.Add(1)
 				go func(idx int) {
 					defer wg.Done()
@@ -250,7 +250,7 @@ var _ = Describe("EventBus", func() {
 			ch := eb.Subscribe("parallel")
 			var wg sync.WaitGroup
 
-			for i := 0; i < 50; i++ {
+			for i := range 50 {
 				wg.Add(1)
 				go func(id int) {
 					defer wg.Done()
@@ -278,12 +278,12 @@ var _ = Describe("EventBus", func() {
 
 		It("should handle concurrent unsubscribes safely", func() {
 			channels := make([]EventChan, 50)
-			for i := 0; i < 50; i++ {
+			for i := range 50 {
 				channels[i] = eb.Subscribe("cleanup")
 			}
 
 			var wg sync.WaitGroup
-			for i := 0; i < 50; i++ {
+			for i := range 50 {
 				wg.Add(1)
 				go func(ch EventChan) {
 					defer wg.Done()
@@ -312,7 +312,7 @@ var _ = Describe("EventBus", func() {
 			}()
 
 			received := []int{}
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				event := <-ch
 				received = append(received, event.Payload.(int))
 			}
@@ -325,13 +325,13 @@ var _ = Describe("EventBus", func() {
 			ch := eb.Subscribe("buffered")
 
 			// Publish more events than we're receiving immediately
-			for i := 0; i < 50; i++ {
+			for i := range 50 {
 				eb.Publish("buffered", Event{Payload: i})
 			}
 
 			// Should not block or panic
 			received := []int{}
-			for i := 0; i < 50; i++ {
+			for range 50 {
 				event := <-ch
 				received = append(received, event.Payload.(int))
 			}

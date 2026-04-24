@@ -32,16 +32,19 @@ func GenerateDiscoveryInfo(
 		if rule.Host != "" {
 			host = rule.Host
 		}
+
 		if rule.HTTP != nil {
 			for _, path := range rule.HTTP.Paths {
 				serviceName := ""
 				if path.Backend.Service != nil {
 					serviceName = path.Backend.Service.Name
 				}
+
 				pathPattern := "/"
 				if path.Path != "" {
 					pathPattern = path.Path
 				}
+
 				discoveryInfo := models.DiscoveryInfo{
 					DiscoveryName: discoveryName,
 					Name:          ing.Name,
@@ -58,6 +61,7 @@ func GenerateDiscoveryInfo(
 			}
 		}
 	}
+
 	return discoveryList
 }
 
@@ -72,16 +76,19 @@ func GenerateIngressAndPodInfo(
 		if rule.Host != "" {
 			host = rule.Host
 		}
+
 		if rule.HTTP != nil {
 			for _, path := range rule.HTTP.Paths {
 				serviceName := ""
 				if path.Backend.Service != nil {
 					serviceName = path.Backend.Service.Name
 				}
+
 				pathPattern := "/"
 				if path.Path != "" {
 					pathPattern = path.Path
 				}
+
 				hasActivePod, podCount := getInfoFromEndpointSlices(
 					endpointSlicesMap,
 					ing.Namespace,
@@ -103,6 +110,7 @@ func GenerateIngressAndPodInfo(
 			}
 		}
 	}
+
 	return discoveryList
 }
 
@@ -113,14 +121,17 @@ func getInfoFromEndpointSlices(
 	if serviceName == "" {
 		return false, 0
 	}
+
 	namespaceEndpointSlices, exists := endpointSlicesMap[namespace]
 	if !exists {
 		return false, 0
 	}
+
 	endpointSlices, exists := namespaceEndpointSlices[serviceName]
 	if !exists {
 		return false, 0
 	}
+
 	readyPodCount := 0
 	for _, endpointSlice := range endpointSlices {
 		for _, endpoint := range endpointSlice.Endpoints {
@@ -129,5 +140,6 @@ func getInfoFromEndpointSlices(
 			}
 		}
 	}
+
 	return readyPodCount > 0, readyPodCount
 }

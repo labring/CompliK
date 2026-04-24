@@ -88,6 +88,7 @@ func (p *SafetyPlugin) loadConfig(setting string) error {
 	}
 
 	var safetyConfig SafetyConfig
+
 	err := json.Unmarshal([]byte(setting), &safetyConfig)
 	if err != nil {
 		p.log.Error("Failed to parse configuration", logger.Fields{
@@ -113,12 +114,15 @@ func (p *SafetyPlugin) loadConfig(setting string) error {
 	if safetyConfig.APIPath != "" {
 		p.safetyConfig.APIPath = safetyConfig.APIPath
 	}
+
 	if safetyConfig.APIBase != "" {
 		p.safetyConfig.APIBase = safetyConfig.APIBase
 	}
+
 	if safetyConfig.Model != "" {
 		p.safetyConfig.Model = safetyConfig.Model
 	}
+
 	if safetyConfig.MaxWorkers > 0 {
 		p.safetyConfig.MaxWorkers = safetyConfig.MaxWorkers
 	}
@@ -182,6 +186,7 @@ func (p *SafetyPlugin) Start(
 			Keywords:      []string{"program_start", "feishu_test", "system_initialization"},
 		},
 	})
+
 	for {
 		select {
 		case event, ok := <-subscribe:
@@ -189,7 +194,9 @@ func (p *SafetyPlugin) Start(
 				p.log.Info("Event subscription channel closed")
 				return nil
 			}
+
 			semaphore <- struct{}{}
+
 			go func(e eventbus.Event) {
 				defer func() { <-semaphore }()
 				defer func() {
@@ -207,6 +214,7 @@ func (p *SafetyPlugin) Start(
 						"expected": "*models.CollectorInfo",
 						"actual":   fmt.Sprintf("%T", e.Payload),
 					})
+
 					return
 				}
 
@@ -264,7 +272,9 @@ func (p *SafetyPlugin) Start(
 			for range p.safetyConfig.MaxWorkers {
 				semaphore <- struct{}{}
 			}
+
 			p.log.Debug("All workers finished")
+
 			return nil
 		}
 	}
@@ -276,6 +286,7 @@ func (p *SafetyPlugin) Stop(ctx context.Context) error {
 	if p.reviewer != nil {
 		p.log.Debug("Cleaning up content reviewer resources")
 	}
+
 	return nil
 }
 
@@ -297,6 +308,7 @@ func (p *SafetyPlugin) safetyJudge(
 			"host":   collector.Host,
 			"reason": collector.CollectorMessage,
 		})
+
 		return &models.DetectorInfo{
 			DiscoveryName: collector.DiscoveryName,
 			CollectorName: collector.CollectorName,
@@ -311,6 +323,7 @@ func (p *SafetyPlugin) safetyJudge(
 			Keywords:      []string{},
 		}, nil
 	}
+
 	p.log.Debug("Calling content reviewer", logger.Fields{
 		"host":           collector.Host,
 		"content_length": len(collector.HTML),
@@ -322,6 +335,7 @@ func (p *SafetyPlugin) safetyJudge(
 			"host":  collector.Host,
 			"error": err.Error(),
 		})
+
 		return &models.DetectorInfo{
 			DiscoveryName: collector.DiscoveryName,
 			CollectorName: collector.CollectorName,
