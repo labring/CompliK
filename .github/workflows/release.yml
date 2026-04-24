@@ -2,54 +2,267 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*.*.*"
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  GHCR_REPO: ghcr.io/${{ github.repository_owner }}
+  GHCR_COMPLIK: ghcr.io/${{ github.repository }}/complik
+  GHCR_PROCSCAN: ghcr.io/${{ github.repository }}/procscan
+  GHCR_CLUSTER: ghcr.io/${{ github.repository }}/cluster
 
 jobs:
-  build-and-push:
-    name: Build and Push ${{ matrix.component }}
-    runs-on: ubuntu-24.04
+  build-complik:
+    name: Build CompliK (${{ matrix.arch }})
     permissions:
       packages: write
     strategy:
       matrix:
         include:
-          - component: complik
-            context: complik
-            dockerfile: complik/Dockerfile
-            pre-build: true
-            build-cmd: CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o bin/service-complik-$TARGETARCH cmd/complik/main.go
-          - component: procscan
-            context: procscan
-            dockerfile: procscan/Dockerfile
-            pre-build: true
-            build-cmd: CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o bin/service-procscan-$TARGETARCH cmd/procscan/main.go
+          - arch: amd64
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on || 'ubuntu-24.04' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Setup Go
-        if: ${{ matrix.pre-build }}
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.work"
+          go-version-file: "complik/go.mod"
 
-      - name: Pre-build binaries
-        if: ${{ matrix.pre-build }}
-        working-directory: ${{ matrix.context }}
+      - name: Build binary
+        working-directory: complik
         run: |
-          for arch in amd64 arm64; do
-            TARGETARCH=$arch
-            CGO_ENABLED=0 GOOS=linux GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" \
-              -o bin/service-${{ matrix.component }}-$TARGETARCH cmd/*/main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} \
+            go build -trimpath -ldflags "-s -w" \
+            -o bin/service-complik-${{ matrix.arch }} cmd/complik/main.go
+
+      - name: Login to GitHub Container Registry
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_COMPLIK }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: complik
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,"name=${{ env.GHCR_COMPLIK }}",name-canonical=true,push-by-digest=${{ github.event_name != 'pull_request' }},push=${{ github.event_name != 'pull_request' }}
+
+      - name: Export digest
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v6
+        with:
+          name: digests-complik-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  build-procscan:
+    name: Build ProcScan (${{ matrix.arch }})
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs-on || 'ubuntu-24.04' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to GitHub Container Registry
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_PROCSCAN }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: procscan
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,"name=${{ env.GHCR_PROCSCAN }}",name-canonical=true,push-by-digest=${{ github.event_name != 'pull_request' }},push=${{ github.event_name != 'pull_request' }}
+
+      - name: Export digest
+        run: |
+          mkdir -p ${{ runner.temp }}/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v6
+        with:
+          name: digests-procscan-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  release-complik:
+    name: Release CompliK Image
+    permissions:
+      packages: write
+    needs: build-complik
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@v7
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-complik-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_COMPLIK }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          for TAG in $DOCKER_METADATA_OUTPUT_TAGS; do
+            docker buildx imagetools create -t "$TAG" \
+              $(printf '${{ env.GHCR_COMPLIK }}@sha256:%s ' *)
           done
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.GHCR_COMPLIK }}:${{ steps.meta.outputs.version }}
+
+  release-procscan:
+    name: Release ProcScan Image
+    permissions:
+      packages: write
+    needs: build-procscan
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@v7
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-procscan-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.GHCR_PROCSCAN }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          for TAG in $DOCKER_METADATA_OUTPUT_TAGS; do
+            docker buildx imagetools create -t "$TAG" \
+              $(printf '${{ env.GHCR_PROCSCAN }}@sha256:%s ' *)
+          done
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.GHCR_PROCSCAN }}:${{ steps.meta.outputs.version }}
+
+  release-sealos-image:
+    name: Release Sealos Cluster Image
+    permissions:
+      packages: write
+    needs: [release-complik, release-procscan]
+    runs-on: ubuntu-24.04
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install sealos CLI
+        run: |
+          ARCH=$(uname -m | sed s/x86_64/amd64/ | sed s/aarch64/arm64/)
+          curl -sfL https://raw.githubusercontent.com/labring/sealos/main/scripts/install.sh | sh -s --
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -58,29 +271,40 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Extract metadata for Docker
+      - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.GHCR_REPO }}/${{ matrix.component }}
+          images: ${{ env.GHCR_CLUSTER }}
           tags: |
+            type=ref,event=tag
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
             type=sha
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      - name: Update image tags in Helm values
+        working-directory: complik/deploy/deploy
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          sed -i "s|repository: bearslyricattack/sealos-complik-service|repository: ${{ env.GHCR_COMPLIK }}|g" charts/complik/values.yaml
+          sed -i "s|tag: \"latest\"|tag: \"${VERSION}\"|g" charts/complik/values.yaml
+          sed -i "s|repository: layzer/sealos-procscan|repository: ${{ env.GHCR_PROCSCAN }}|g" charts/procscan/values.yaml
+          sed -i "s|tag: \"v0.0.2-alpha-6\"|tag: \"${VERSION}\"|g" charts/procscan/values.yaml
+
+      - name: Login to GHCR with sealos
+        run: |
+          sudo sealos login -u "${{ github.repository_owner }}" -p "${{ secrets.GITHUB_TOKEN }}" ghcr.io
+
+      - name: Cache images for offline installation
+        working-directory: complik/deploy/deploy
+        run: |
+          sudo sealos registry save --registry-dir=registry_amd64 --arch amd64 .
+          sudo sealos registry save --registry-dir=registry_arm64 --arch arm64 .
+
+      - name: Build and push cluster image
+        working-directory: complik/deploy/deploy
+        run: |
+          for TAG in $DOCKER_METADATA_OUTPUT_TAGS; do
+            sudo sealos build -t "$TAG" -f Kubefile .
+            sudo sealos push "$TAG"
+          done
