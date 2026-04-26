@@ -33,7 +33,6 @@ type procscanViolationRequest struct {
 	Message           string    `json:"message"`
 	LabelActionStatus string    `json:"label_action_status,omitempty"`
 	LabelActionResult string    `json:"label_action_result,omitempty"`
-	Status            string    `json:"status"`
 	DetectedAt        time.Time `json:"detected_at"`
 	RawPayload        any       `json:"raw_payload,omitempty"`
 }
@@ -82,7 +81,6 @@ func (s *Scanner) reportProcscanViolation(processInfo *models.ProcessInfo, label
 		Message:           processInfo.Message,
 		LabelActionStatus: normalizeLabelActionStatus(labelResult),
 		LabelActionResult: labelResult,
-		Status:            "open",
 		DetectedAt:        detectedAt,
 		RawPayload: map[string]any{
 			"process_info":  processInfo,
