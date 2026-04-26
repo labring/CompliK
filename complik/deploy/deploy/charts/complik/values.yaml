@@ -44,6 +44,10 @@ external:
   lark:
     webhook: ""
 
+  admin:
+    baseURL: "http://sealos-complik-admin:8080"
+    timeoutSecond: 10
+
 plugins:
   complete:
     enabled: true
@@ -86,6 +90,9 @@ plugins:
     tableName: "CustomKeywordRule"
 
   postgres:
+    enabled: true
+
+  adminReporter:
     enabled: true
 
   lark:

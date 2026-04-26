@@ -29,6 +29,7 @@ import (
 	_ "github.com/bearslyricattack/CompliK/complik/plugins/discovery/informer/deployment"
 	_ "github.com/bearslyricattack/CompliK/complik/plugins/discovery/informer/endPointSlice"
 	_ "github.com/bearslyricattack/CompliK/complik/plugins/discovery/informer/statefulset"
+	_ "github.com/bearslyricattack/CompliK/complik/plugins/handle/admin/reporter"
 	_ "github.com/bearslyricattack/CompliK/complik/plugins/handle/database/postages"
 	_ "github.com/bearslyricattack/CompliK/complik/plugins/handle/lark"
 )

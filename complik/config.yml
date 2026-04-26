@@ -93,6 +93,16 @@ plugins:
         "password": "${POSTGRES_PASSWORD}"
       }
 
+  - name: "AdminReporter"
+    type: "Handle"
+    enabled: true
+    settings: |
+      {
+        "region": "${REGION}",
+        "adminBaseURL": "http://sealos-complik-admin:8080",
+        "adminTimeoutSecond": 10
+      }
+
   - name: "Lark"
     type: "Handle"
     enabled: true
