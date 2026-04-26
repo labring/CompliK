@@ -65,10 +65,9 @@ data:
         enabled: true
         settings: |
           {
-            "apiKey": "",
-            "apiBase": "",
-            "apiPath": "/chat/completions",
-            "model": "gpt-5"
+            "maxWorkers": 20,
+            "adminBaseURL": "http://sealos-complik-admin:8080",
+            "adminTimeoutSecond": 10
           }
 
       - name: "Custom"
@@ -76,18 +75,10 @@ data:
         enabled: false
         settings: |
           {
-            "databaseName": "custom",
             "tickerMinute": 800,
             "maxWorkers": 20,
-            "host": "",
-            "port": "",
-            "username": "root",
-            "password": "",
-            "tableName": "",
-            "apiKey": "",
-            "apiBase": "",
-            "apiPath": "/chat/completions",
-            "model": "gpt-5"
+            "adminBaseURL": "http://sealos-complik-admin:8080",
+            "adminTimeoutSecond": 10
           }
 
       - name: "AdminReporter"
@@ -106,7 +97,8 @@ data:
         settings: |
           {
             "region": "hzh",
-            "webhook": ""
+            "adminBaseURL": "http://sealos-complik-admin:8080",
+            "adminTimeoutSecond": 10
           }
     logging:
       level: "info"

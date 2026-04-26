@@ -59,28 +59,19 @@ data:
         enabled: {{ .Values.plugins.safety.enabled }}
         settings: |
           {
-            "apiKey": {{ .Values.external.ai.apiKey | quote }},
-            "apiBase": {{ .Values.external.ai.apiBase | quote }},
-            "apiPath": {{ .Values.external.ai.apiPath | quote }},
-            "model": {{ .Values.external.ai.model | quote }}
+            "maxWorkers": {{ .Values.plugins.safety.maxWorkers }},
+            "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}
           }
       - name: "Custom"
         type: "Compliance"
         enabled: {{ .Values.plugins.custom.enabled }}
         settings: |
           {
-            "databaseName": {{ .Values.plugins.custom.databaseName | quote }},
             "tickerMinute": {{ .Values.plugins.custom.tickerMinute }},
             "maxWorkers": {{ .Values.plugins.custom.maxWorkers }},
-            "host": {{ .Values.external.database.host | quote }},
-            "port": {{ .Values.external.database.port | quote }},
-            "username": {{ .Values.external.database.username | quote }},
-            "password": {{ .Values.external.database.password | quote }},
-            "tableName": {{ .Values.plugins.custom.tableName | quote }},
-            "apiKey": {{ .Values.external.ai.apiKey | quote }},
-            "apiBase": {{ .Values.external.ai.apiBase | quote }},
-            "apiPath": {{ .Values.external.ai.apiPath | quote }},
-            "model": {{ .Values.external.ai.model | quote }}
+            "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}
           }
       - name: "AdminReporter"
         type: "Handle"
@@ -97,7 +88,16 @@ data:
         settings: |
           {
             "region": {{ .Values.external.region | quote }},
-            "webhook": {{ .Values.external.lark.webhook | quote }}
+            "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }},
+            "enabled_whitelist": {{ .Values.plugins.lark.enabledWhitelist }},
+            "host": {{ .Values.plugins.lark.host | quote }},
+            "port": {{ .Values.plugins.lark.port | quote }},
+            "username": {{ .Values.plugins.lark.username | quote }},
+            "password": {{ .Values.plugins.lark.password | quote }},
+            "databaseName": {{ .Values.plugins.lark.databaseName | quote }},
+            "tableName": {{ .Values.plugins.lark.tableName | quote }},
+            "host_timeout_hour": {{ .Values.plugins.lark.hostTimeoutHour }}
           }
     logging:
       level: {{ .Values.config.logging.level | quote }}

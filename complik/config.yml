@@ -56,10 +56,9 @@ plugins:
     enabled: true
     settings: |
       {
-        "apiKey": "${SAFETY_API_KEY}",
-        "apiBase": "${SAFETY_API_BASE}",
-        "apiPath": "/chat/completions",
-        "model": "gpt-5"
+        "maxWorkers": 20,
+        "adminBaseURL": "http://sealos-complik-admin:8080",
+        "adminTimeoutSecond": 10
       }
 
   - name: "Custom"
@@ -67,18 +66,10 @@ plugins:
     enabled: true
     settings: |
       {
-        "databaseName": "custom",
         "tickerMinute": 800,
         "maxWorkers": 20,
-        "host": "${DB_HOST}",
-        "port": "${DB_PORT}",
-        "username": "${DB_USERNAME}",
-        "password": "${DB_PASSWORD}",
-        "tableName": "CustomKeywordRule",
-        "apiKey": "${CUSTOM_API_KEY}",
-        "apiBase": "${CUSTOM_API_BASE}",
-        "apiPath": "/chat/completions",
-        "model": "gpt-5"
+        "adminBaseURL": "http://sealos-complik-admin:8080",
+        "adminTimeoutSecond": 10
       }
 
   - name: "AdminReporter"
@@ -97,7 +88,8 @@ plugins:
     settings: |
       {
         "region": "${REGION}",
-        "webhook": "${LARK_WEBHOOK}",
+        "adminBaseURL": "http://sealos-complik-admin:8080",
+        "adminTimeoutSecond": 10,
         "enabled_whitelist": true,
         "host": "${LARK_DB_HOST}",
         "port": "${LARK_DB_PORT}",
