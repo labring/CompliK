@@ -190,13 +190,13 @@ var _ = Describe("Processor", func() {
 			matched, message := processor.isBlacklisted("minerd", "/usr/bin/minerd -o pool")
 			Expect(matched).To(BeTrue())
 			Expect(message).To(ContainSubstring("minerd"))
-			Expect(message).To(ContainSubstring("blacklist rule"))
+			Expect(message).To(ContainSubstring("命中黑名单规则"))
 		})
 
 		It("should detect blacklisted keyword in command", func() {
 			matched, message := processor.isBlacklisted("worker", "/app/worker stratum+tcp://pool.com:3333")
 			Expect(matched).To(BeTrue())
-			Expect(message).To(ContainSubstring("keyword blacklist"))
+			Expect(message).To(ContainSubstring("命中关键词黑名单规则"))
 		})
 
 		It("should not match safe process", func() {
