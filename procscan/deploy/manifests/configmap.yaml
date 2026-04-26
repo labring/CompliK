@@ -22,6 +22,9 @@ data:
         webhook: ""
         timeout: "30s"
         retry_count: 3
+      admin:
+        base_url: "http://sealos-complik-admin:8080"
+        timeout: "10s"
 
     metrics:
       enabled: false
