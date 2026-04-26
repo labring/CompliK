@@ -90,18 +90,6 @@ data:
             "model": "gpt-5"
           }
 
-      - name: "Postgres"
-        type: "Handle"
-        enabled: true
-        settings: |
-          {
-            "region": "hzh",
-            "host": "",
-            "port": "",
-            "username": "",
-            "password": ""
-          }
-
       - name: "AdminReporter"
         type: "Handle"
         enabled: true
