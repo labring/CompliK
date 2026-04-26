@@ -44,12 +44,17 @@ type Notifier struct {
 }
 
 func NewNotifier(webhookURL string, db *gorm.DB, timeout time.Duration, region string) *Notifier {
+	var whitelistService *whitelist.WhitelistService
+	if db != nil {
+		whitelistService = whitelist.NewWhitelistService(db, timeout)
+	}
+
 	return &Notifier{
 		WebhookURL: webhookURL,
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		WhitelistService: whitelist.NewWhitelistService(db, timeout),
+		WhitelistService: whitelistService,
 		Region:           region,
 	}
 }

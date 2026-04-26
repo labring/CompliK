@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bearslyricattack/CompliK/complik/pkg/constants"
@@ -66,35 +67,39 @@ func (p *LarkPlugin) Type() string {
 }
 
 type LarkConfig struct {
-	Region           string `json:"region"`
-	Webhook          string `json:"webhook"`
-	EnabledWhitelist *bool  `json:"enabled_whitelist"`
-	Host             string `json:"host"`
-	Port             string `json:"port"`
-	Username         string `json:"username"`
-	Password         string `json:"password"`
-	DatabaseName     string `json:"databaseName"`
-	TableName        string `json:"tableName"`
-	Charset          string `json:"charset"`
-	HostTimeoutHour  int    `json:"host_timeout_hour"`
+	Region             string `json:"region"`
+	Webhook            string `json:"webhook"`
+	EnabledWhitelist   *bool  `json:"enabled_whitelist"`
+	Host               string `json:"host"`
+	Port               string `json:"port"`
+	Username           string `json:"username"`
+	Password           string `json:"password"`
+	DatabaseName       string `json:"databaseName"`
+	TableName          string `json:"tableName"`
+	Charset            string `json:"charset"`
+	HostTimeoutHour    int    `json:"host_timeout_hour"`
+	AdminBaseURL       string `json:"adminBaseURL"`
+	AdminTimeoutSecond int    `json:"adminTimeoutSecond"`
 }
 
 func (p *LarkPlugin) getDefaultConfig() LarkConfig {
 	b := false
 
 	return LarkConfig{
-		Region:           "UNKNOWN",
-		EnabledWhitelist: &b,
-		DatabaseName:     "complik",
-		TableName:        "whitelist",
-		Charset:          "utf8mb4",
+		Region:             "UNKNOWN",
+		EnabledWhitelist:   &b,
+		DatabaseName:       "complik",
+		TableName:          "whitelist",
+		Charset:            "utf8mb4",
+		AdminBaseURL:       config.DefaultAdminBaseURL,
+		AdminTimeoutSecond: config.DefaultAdminTimeoutSecond,
 	}
 }
 
 func (p *LarkPlugin) loadConfig(setting string) error {
 	p.larkConfig = p.getDefaultConfig()
 
-	if setting == "" {
+	if strings.TrimSpace(setting) == "" {
 		return errors.New("configuration cannot be empty")
 	}
 
@@ -106,10 +111,6 @@ func (p *LarkPlugin) loadConfig(setting string) error {
 			"error": err.Error(),
 		})
 		return err
-	}
-
-	if configFromJSON.Webhook == "" {
-		return errors.New("webhook configuration cannot be empty")
 	}
 
 	if configFromJSON.EnabledWhitelist != nil && *configFromJSON.EnabledWhitelist {
@@ -161,7 +162,43 @@ func (p *LarkPlugin) loadConfig(setting string) error {
 	if configFromJSON.Region != "" {
 		p.larkConfig.Region = configFromJSON.Region
 	}
+	if strings.TrimSpace(configFromJSON.AdminBaseURL) != "" {
+		if secureValue, err := config.GetSecureValue(configFromJSON.AdminBaseURL); err == nil {
+			p.larkConfig.AdminBaseURL = secureValue
+		} else {
+			p.larkConfig.AdminBaseURL = configFromJSON.AdminBaseURL
+		}
+	}
+	if configFromJSON.AdminTimeoutSecond > 0 {
+		p.larkConfig.AdminTimeoutSecond = configFromJSON.AdminTimeoutSecond
+	}
+	if err := p.applyNotificationsRuntimeConfig(context.Background()); err != nil {
+		return fmt.Errorf("failed to apply notifications runtime config from admin: %w", err)
+	}
+	if strings.TrimSpace(p.larkConfig.Webhook) == "" {
+		return errors.New("complik_notifications_runtime config missing webhook")
+	}
 
+	return nil
+}
+
+func (p *LarkPlugin) applyNotificationsRuntimeConfig(ctx context.Context) error {
+	runtimeCfg, err := config.LoadNotificationsRuntimeConfig(
+		ctx,
+		p.larkConfig.AdminBaseURL,
+		p.larkConfig.AdminTimeoutSecond,
+	)
+	if err != nil {
+		return err
+	}
+	if runtimeCfg == nil {
+		return errors.New("complik_notifications_runtime config not found in admin")
+	}
+	webhook := strings.TrimSpace(runtimeCfg.Webhook)
+	if webhook == "" {
+		return errors.New("complik_notifications_runtime config missing webhook")
+	}
+	p.larkConfig.Webhook = webhook
 	return nil
 }
 
@@ -271,7 +308,7 @@ func (p *LarkPlugin) Start(
 			}
 		}
 	} else {
-		p.notifier = NewNotifier(p.larkConfig.Webhook, nil, 0, "")
+		p.notifier = NewNotifier(p.larkConfig.Webhook, nil, 0, p.larkConfig.Region)
 	}
 
 	subscribe := eventBus.Subscribe(constants.DetectorTopic)
