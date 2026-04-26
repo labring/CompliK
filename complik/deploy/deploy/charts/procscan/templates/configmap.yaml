@@ -19,37 +19,6 @@ data:
         enabled: {{ .Values.config.actions.forceDelete.enabled }}
 
     notifications:
-      lark:
-        webhook: {{ .Values.config.notifications.lark.webhook | quote }}
       admin:
         base_url: {{ .Values.config.notifications.admin.base_url | quote }}
         timeout: {{ .Values.config.notifications.admin.timeout | quote }}
-      region: {{ .Values.config.notifications.region | quote }}
-
-    detectionRules:
-      blacklist:
-        processes:
-          {{- range .Values.config.detectionRules.blacklist.processes }}
-          - {{ . | quote }}
-          {{- end }}
-        keywords:
-          {{- range .Values.config.detectionRules.blacklist.keywords }}
-          - {{ . | quote }}
-          {{- end }}
-      whitelist:
-        processes:
-          {{- range .Values.config.detectionRules.whitelist.processes }}
-          - {{ . | quote }}
-          {{- end }}
-        commands:
-          {{- range .Values.config.detectionRules.whitelist.commands }}
-          - {{ . | quote }}
-          {{- end }}
-        namespaces:
-          {{- range .Values.config.detectionRules.whitelist.namespaces }}
-          - {{ . | quote }}
-          {{- end }}
-        podNames:
-          {{- range .Values.config.detectionRules.whitelist.podNames }}
-          - {{ . | quote }}
-          {{- end }}

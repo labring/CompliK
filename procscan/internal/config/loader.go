@@ -17,19 +17,43 @@ package config
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/bearslyricattack/CompliK/procscan/pkg/models"
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	procscanNotificationsConfigType = "procscan_notifications_runtime"
+	procscanRulesConfigType         = "procscan_rules"
+	defaultAdminConfigTimeout       = 5 * time.Second
+)
+
+var defaultAdminClient = &http.Client{Timeout: defaultAdminConfigTimeout}
+
 // Loader handles configuration file loading and parsing
 type Loader struct {
 	configPath string
 	lastHash   string
+}
+
+type adminProjectConfigResponse struct {
+	ConfigName  string          `json:"config_name"`
+	ConfigValue json.RawMessage `json:"config_value"`
+}
+
+type remoteNotificationsConfig struct {
+	Region  *string `json:"region"`
+	Webhook *string `json:"webhook"`
 }
 
 // NewLoader creates a new configuration loader
@@ -63,7 +87,97 @@ func (l *Loader) Load() (*models.Config, error) {
 	hash, _ := l.calculateHash()
 	l.lastHash = hash
 
+	if err := l.loadAdminConfig(&config); err != nil {
+		return nil, err
+	}
+
 	return &config, nil
+}
+
+func (l *Loader) loadAdminConfig(config *models.Config) error {
+	adminBaseURL := strings.TrimSpace(config.Notifications.Admin.BaseURL)
+	if adminBaseURL == "" {
+		return fmt.Errorf("notifications.admin.base_url is required")
+	}
+
+	notifications, err := l.loadRemoteNotificationsConfig(adminBaseURL, config.Notifications.Admin.Timeout)
+	if err != nil {
+		return fmt.Errorf("load notifications config from admin: %w", err)
+	}
+	if notifications.Region == nil || strings.TrimSpace(*notifications.Region) == "" {
+		return fmt.Errorf("admin config %q missing region", procscanNotificationsConfigType)
+	}
+	if notifications.Webhook == nil || strings.TrimSpace(*notifications.Webhook) == "" {
+		return fmt.Errorf("admin config %q missing webhook", procscanNotificationsConfigType)
+	}
+	config.Notifications.Region = strings.TrimSpace(*notifications.Region)
+	config.Notifications.Lark.Webhook = strings.TrimSpace(*notifications.Webhook)
+
+	rules, err := l.loadRemoteRulesConfig(adminBaseURL, config.Notifications.Admin.Timeout)
+	if err != nil {
+		return fmt.Errorf("load detection rules config from admin: %w", err)
+	}
+	config.DetectionRules = *rules
+
+	return nil
+}
+
+func (l *Loader) loadRemoteNotificationsConfig(adminBaseURL string, timeout time.Duration) (*remoteNotificationsConfig, error) {
+	var config remoteNotificationsConfig
+	if err := l.loadRemoteConfigValue(adminBaseURL, timeout, procscanNotificationsConfigType, &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+func (l *Loader) loadRemoteRulesConfig(adminBaseURL string, timeout time.Duration) (*models.DetectionRules, error) {
+	var rules models.DetectionRules
+	if err := l.loadRemoteConfigValue(adminBaseURL, timeout, procscanRulesConfigType, &rules); err != nil {
+		return nil, err
+	}
+	return &rules, nil
+}
+
+func (l *Loader) loadRemoteConfigValue(adminBaseURL string, timeout time.Duration, configType string, target any) error {
+	endpoint := strings.TrimRight(adminBaseURL, "/") + "/api/configs/type/" + url.PathEscape(configType)
+	resp, err := adminClient(timeout).Get(endpoint)
+	if err != nil {
+		return fmt.Errorf("request %s: %w", configType, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("request %s: status %d, body %s", configType, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var payloads []adminProjectConfigResponse
+	if err := json.NewDecoder(resp.Body).Decode(&payloads); err != nil {
+		return fmt.Errorf("decode %s response: %w", configType, err)
+	}
+	if len(payloads) == 0 {
+		return fmt.Errorf("%s response is empty", configType)
+	}
+
+	sort.Slice(payloads, func(i, j int) bool {
+		return payloads[i].ConfigName < payloads[j].ConfigName
+	})
+
+	if len(payloads[0].ConfigValue) == 0 {
+		return fmt.Errorf("%s config value is empty", configType)
+	}
+	if err := json.Unmarshal(payloads[0].ConfigValue, target); err != nil {
+		return fmt.Errorf("decode %s config value: %w", configType, err)
+	}
+
+	return nil
+}
+
+func adminClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 || timeout == defaultAdminConfigTimeout {
+		return defaultAdminClient
+	}
+	return &http.Client{Timeout: timeout}
 }
 
 // HasChanged checks if the configuration file has changed since last load
