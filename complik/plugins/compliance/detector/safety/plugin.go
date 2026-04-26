@@ -23,6 +23,8 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/bearslyricattack/CompliK/complik/pkg/constants"
@@ -51,6 +53,7 @@ type SafetyPlugin struct {
 	log          logger.Logger
 	reviewer     *utils.ContentReviewer
 	safetyConfig SafetyConfig
+	safetyPrompt string
 }
 
 func (p *SafetyPlugin) Name() string {
@@ -62,19 +65,20 @@ func (p *SafetyPlugin) Type() string {
 }
 
 type SafetyConfig struct {
-	MaxWorkers int    `json:"maxWorkers"`
-	APIKey     string `json:"apiKey"`
-	APIBase    string `json:"apiBase"`
-	APIPath    string `json:"apiPath"`
-	Model      string `json:"model"`
+	MaxWorkers         int    `json:"maxWorkers"`
+	APIKey             string `json:"apiKey"`
+	APIBase            string `json:"apiBase"`
+	APIPath            string `json:"apiPath"`
+	Model              string `json:"model"`
+	AdminBaseURL       string `json:"adminBaseURL"`
+	AdminTimeoutSecond int    `json:"adminTimeoutSecond"`
 }
 
 func (p *SafetyPlugin) getDefaultConfig() SafetyConfig {
 	return SafetyConfig{
-		MaxWorkers: 20,
-		Model:      "gpt-5",
-		APIBase:    "https://aiproxy.usw.sealos.io/v1",
-		APIPath:    "/chat/completions",
+		MaxWorkers:         20,
+		AdminBaseURL:       config.DefaultAdminBaseURL,
+		AdminTimeoutSecond: config.DefaultAdminTimeoutSecond,
 	}
 }
 
@@ -97,34 +101,30 @@ func (p *SafetyPlugin) loadConfig(setting string) error {
 		return err
 	}
 
-	if safetyConfig.APIKey == "" {
-		p.log.Error("APIKey configuration is required")
-		return errors.New("APIKey configuration cannot be empty")
-	}
-
-	// Support secure API key from environment variable or encryption
-	if apiKey, err := config.GetSecureValue(safetyConfig.APIKey); err == nil {
-		p.safetyConfig.APIKey = apiKey
-		p.log.Debug("Using secure API key from environment/encryption")
-	} else {
-		p.safetyConfig.APIKey = safetyConfig.APIKey
-		p.log.Warn("Using plain text API key - consider using environment variables")
-	}
-
-	if safetyConfig.APIPath != "" {
-		p.safetyConfig.APIPath = safetyConfig.APIPath
-	}
-
-	if safetyConfig.APIBase != "" {
-		p.safetyConfig.APIBase = safetyConfig.APIBase
-	}
-
-	if safetyConfig.Model != "" {
-		p.safetyConfig.Model = safetyConfig.Model
-	}
-
 	if safetyConfig.MaxWorkers > 0 {
 		p.safetyConfig.MaxWorkers = safetyConfig.MaxWorkers
+	}
+	if strings.TrimSpace(safetyConfig.AdminBaseURL) != "" {
+		if secureValue, err := config.GetSecureValue(safetyConfig.AdminBaseURL); err == nil {
+			p.safetyConfig.AdminBaseURL = secureValue
+		} else {
+			p.safetyConfig.AdminBaseURL = safetyConfig.AdminBaseURL
+		}
+	}
+	if safetyConfig.AdminTimeoutSecond > 0 {
+		p.safetyConfig.AdminTimeoutSecond = safetyConfig.AdminTimeoutSecond
+	}
+	if err := p.applyModelRuntimeConfig(context.Background()); err != nil {
+		return fmt.Errorf("failed to apply model runtime config from admin: %w", err)
+	}
+	if err := p.applySafetyPromptRules(context.Background()); err != nil {
+		return fmt.Errorf("failed to apply safety prompt rules from admin: %w", err)
+	}
+	if strings.TrimSpace(p.safetyConfig.APIKey) == "" ||
+		strings.TrimSpace(p.safetyConfig.APIBase) == "" ||
+		strings.TrimSpace(p.safetyConfig.APIPath) == "" ||
+		strings.TrimSpace(p.safetyConfig.Model) == "" {
+		return errors.New("model_runtime config from admin is incomplete")
 	}
 
 	p.log.Info("Safety detector configuration loaded", logger.Fields{
@@ -134,6 +134,92 @@ func (p *SafetyPlugin) loadConfig(setting string) error {
 		"max_workers": p.safetyConfig.MaxWorkers,
 	})
 
+	return nil
+}
+
+func (p *SafetyPlugin) applyModelRuntimeConfig(ctx context.Context) error {
+	modelCfg, err := config.LoadModelRuntimeConfig(
+		ctx,
+		p.safetyConfig.AdminBaseURL,
+		p.safetyConfig.AdminTimeoutSecond,
+	)
+	if err != nil {
+		return err
+	}
+	if modelCfg == nil {
+		return errors.New("model_runtime config not found in admin")
+	}
+	if strings.TrimSpace(modelCfg.APIKey) != "" {
+		if secureValue, err := config.GetSecureValue(modelCfg.APIKey); err == nil {
+			p.safetyConfig.APIKey = secureValue
+		} else {
+			p.safetyConfig.APIKey = modelCfg.APIKey
+		}
+	}
+	if strings.TrimSpace(modelCfg.APIBase) != "" {
+		p.safetyConfig.APIBase = strings.TrimSpace(modelCfg.APIBase)
+	}
+	if strings.TrimSpace(modelCfg.APIPath) != "" {
+		p.safetyConfig.APIPath = strings.TrimSpace(modelCfg.APIPath)
+	}
+	if strings.TrimSpace(modelCfg.Model) != "" {
+		p.safetyConfig.Model = strings.TrimSpace(modelCfg.Model)
+	}
+	return nil
+}
+
+func (p *SafetyPlugin) applySafetyPromptRules(ctx context.Context) error {
+	cfgs, err := config.ListAdminProjectConfigsByType(
+		ctx,
+		p.safetyConfig.AdminBaseURL,
+		p.safetyConfig.AdminTimeoutSecond,
+		"safety",
+	)
+	if err != nil {
+		return err
+	}
+	if len(cfgs) == 0 {
+		return errors.New("no safety rules found in admin configs")
+	}
+
+	type ruleItem struct {
+		name    string
+		content string
+	}
+	rules := make([]ruleItem, 0, len(cfgs))
+	for _, cfg := range cfgs {
+		var payload struct {
+			Content string `json:"content"`
+		}
+		if err := cfg.DecodeValue(&payload); err != nil {
+			p.log.Warn("Failed to decode safety rule config_value", logger.Fields{
+				"config_name": cfg.ConfigName,
+				"error":       err.Error(),
+			})
+			continue
+		}
+		content := strings.TrimSpace(payload.Content)
+		if content == "" {
+			p.log.Warn("Skip empty safety rule content", logger.Fields{
+				"config_name": cfg.ConfigName,
+			})
+			continue
+		}
+		rules = append(rules, ruleItem{name: strings.TrimSpace(cfg.ConfigName), content: content})
+	}
+	if len(rules) == 0 {
+		return errors.New("no valid safety rules found in admin configs")
+	}
+
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].name < rules[j].name
+	})
+	parts := make([]string, 0, len(rules))
+	for _, rule := range rules {
+		parts = append(parts, rule.content)
+	}
+	p.safetyPrompt = strings.Join(parts, "\n\n")
+	p.log.Info("Applied safety rules from admin", logger.Fields{"rule_count": len(rules)})
 	return nil
 }
 
@@ -329,7 +415,7 @@ func (p *SafetyPlugin) safetyJudge(
 		"content_length": len(collector.HTML),
 	})
 
-	result, err := p.reviewer.ReviewSiteContent(taskCtx, collector, p.Name(), nil)
+	result, err := p.reviewer.ReviewSiteContent(taskCtx, collector, p.Name(), nil, p.safetyPrompt)
 	if err != nil {
 		p.log.Error("Content review failed", logger.Fields{
 			"host":  collector.Host,
