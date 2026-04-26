@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 FROM --platform=$BUILDPLATFORM golang:1.24.5-alpine AS builder
 
 ARG TARGETOS
@@ -13,21 +15,26 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 COPY . .
 
-# Limit parallel package builds to reduce peak memory usage during image builds.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
+    target_os="${TARGETOS:-linux}" && \
+    target_arch="${TARGETARCH:-$(go env GOARCH)}" && \
+    CGO_ENABLED=0 GOOS="${target_os}" GOARCH="${target_arch}" \
     go build -trimpath -ldflags="-s -w" -p=1 -o /out/manager ./cmd/procscan
 
-FROM scratch
+FROM alpine:3.22
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+RUN apk add --no-cache ca-certificates && \
+    addgroup -g 65532 -S nonroot && \
+    adduser -u 65532 -S -D -H -G nonroot nonroot
+
 COPY --from=builder /out/manager /manager
 COPY config.yaml /config/config.yaml
 
-EXPOSE 8428
+RUN chmod +x /manager
+
+EXPOSE 8080
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
 CMD ["--config=/config/config.yaml"]
- 
