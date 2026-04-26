@@ -45,10 +45,17 @@ type LarkNotificationConfig struct {
 	Webhook string `yaml:"webhook"`
 }
 
+// AdminNotificationConfig contains configuration for the admin API.
+type AdminNotificationConfig struct {
+	BaseURL string        `yaml:"base_url"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
 // NotificationsConfig aggregates all notification channels
 type NotificationsConfig struct {
-	Lark   LarkNotificationConfig `yaml:"lark"`
-	Region string                 `yaml:"region"`
+	Lark   LarkNotificationConfig  `yaml:"lark"`
+	Admin  AdminNotificationConfig `yaml:"admin"`
+	Region string                  `yaml:"region"`
 }
 
 // MetricsConfig contains configuration for Prometheus metrics
@@ -88,7 +95,7 @@ type Config struct {
 
 // --- Business data models ---
 
-// ProcessInfo stores complete information for a single detected suspicious process
+// ProcessInfo stores complete information for a single detected process sample.
 type ProcessInfo struct {
 	PID         int
 	ProcessName string
@@ -98,4 +105,5 @@ type ProcessInfo struct {
 	ContainerID string
 	Timestamp   string
 	Message     string
+	IsIllegal   bool
 }

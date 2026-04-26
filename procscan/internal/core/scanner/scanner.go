@@ -278,34 +278,64 @@ func (s *Scanner) scanProcesses() error {
 	}
 
 	if len(resultsByNamespace) == 0 {
-		legacy.L.Info("No suspicious processes found in this scan round")
+		legacy.L.Info("No process samples found in this scan round")
 		return nil
+	}
+
+	illegalResultsByNamespace := make(map[string][]*models.ProcessInfo)
+	for namespace, processInfos := range resultsByNamespace {
+		illegalProcessInfos := filterIllegalProcessInfos(processInfos)
+		if len(illegalProcessInfos) > 0 {
+			illegalResultsByNamespace[namespace] = illegalProcessInfos
+		}
 	}
 
 	// Record suspicious process metrics
 	if s.metrics != nil {
-		for namespace, processInfos := range resultsByNamespace {
+		for namespace, processInfos := range illegalResultsByNamespace {
 			s.metrics.RecordSuspiciousProcesses(len(processInfos), namespace)
 		}
 	}
 
-	legacy.L.WithField("count", len(resultsByNamespace)).Info("Found namespaces with suspicious processes, starting grouped processing...")
-	finalResults := make([]*alert.NamespaceScanResult, 0, len(resultsByNamespace))
+	legacy.L.WithFields(logrus.Fields{
+		"namespaces_with_samples": len(resultsByNamespace),
+		"namespaces_with_illegal": len(illegalResultsByNamespace),
+	}).Info("Found process samples, starting grouped processing...")
+
+	finalResults := make([]*alert.NamespaceScanResult, 0, len(illegalResultsByNamespace))
 	for namespace, processInfos := range resultsByNamespace {
+		s.reportProcscanViolations(processInfos)
+		illegalProcessInfos := illegalResultsByNamespace[namespace]
+		if len(illegalProcessInfos) == 0 {
+			continue
+		}
+
 		labelResult := s.handleGroupedActions(namespace, currentConfig)
 		finalResults = append(finalResults, &alert.NamespaceScanResult{
 			Namespace:    namespace,
-			ProcessInfos: processInfos,
+			ProcessInfos: illegalProcessInfos,
 			LabelResult:  labelResult,
 		})
 	}
 
-	if err := alert.SendGlobalBatchAlert(finalResults, currentConfig.Notifications.Lark.Webhook, currentConfig.Notifications.Region); err != nil {
-		legacy.L.WithError(err).Error("Failed to send global batch Lark alert")
+	if len(finalResults) > 0 {
+		if err := alert.SendGlobalBatchAlert(finalResults, currentConfig.Notifications.Lark.Webhook, currentConfig.Notifications.Region); err != nil {
+			legacy.L.WithError(err).Error("Failed to send global batch Lark alert")
+		}
 	}
 
 	legacy.L.Info("Scan round completed")
 	return nil
+}
+
+func filterIllegalProcessInfos(processInfos []*models.ProcessInfo) []*models.ProcessInfo {
+	illegalProcessInfos := make([]*models.ProcessInfo, 0, len(processInfos))
+	for _, processInfo := range processInfos {
+		if processInfo != nil && processInfo.IsIllegal {
+			illegalProcessInfos = append(illegalProcessInfos, processInfo)
+		}
+	}
+	return illegalProcessInfos
 }
 
 func (s *Scanner) handleGroupedActions(namespace string, config *models.Config) (labelResult string) {
