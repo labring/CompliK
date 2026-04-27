@@ -102,6 +102,16 @@ data:
             "password": ""
           }
 
+      - name: "AdminReporter"
+        type: "Handle"
+        enabled: true
+        settings: |
+          {
+            "region": "hzh",
+            "adminBaseURL": "http://sealos-complik-admin:8080",
+            "adminTimeoutSecond": 10
+          }
+
       - name: "Lark"
         type: "Handle"
         enabled: true

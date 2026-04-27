@@ -93,6 +93,15 @@ data:
             "username": {{ .Values.external.database.username | quote }},
             "password": {{ .Values.external.database.password | quote }}
           }
+      - name: "AdminReporter"
+        type: "Handle"
+        enabled: {{ .Values.plugins.adminReporter.enabled }}
+        settings: |
+          {
+            "region": {{ .Values.external.region | quote }},
+            "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}
+          }
       - name: "Lark"
         type: "Handle"
         enabled: {{ .Values.plugins.lark.enabled }}
