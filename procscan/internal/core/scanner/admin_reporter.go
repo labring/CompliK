@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -15,7 +16,6 @@ import (
 )
 
 const (
-	defaultAdminBaseURL = "http://sealos-complik-admin:8080"
 	defaultAdminTimeout = 10 * time.Second
 	adminViolationsPath = "/api/procscan-violations"
 )
@@ -37,11 +37,17 @@ type procscanViolationRequest struct {
 }
 
 func (s *Scanner) reportProcscanViolations(processInfos []*models.ProcessInfo) {
+	endpoint, ok := s.adminEndpoint()
+	if !ok {
+		legacy.L.Info("Admin reporting is disabled because notifications.admin.base_url is empty")
+		return
+	}
+
 	for _, processInfo := range processInfos {
 		if processInfo == nil {
 			continue
 		}
-		if err := s.reportProcscanViolation(processInfo); err != nil {
+		if err := s.reportProcscanViolation(endpoint, processInfo); err != nil {
 			legacy.L.WithFields(map[string]any{
 				"namespace": processInfo.Namespace,
 				"pod":       processInfo.PodName,
@@ -52,7 +58,7 @@ func (s *Scanner) reportProcscanViolations(processInfos []*models.ProcessInfo) {
 	}
 }
 
-func (s *Scanner) reportProcscanViolation(processInfo *models.ProcessInfo) error {
+func (s *Scanner) reportProcscanViolation(endpoint string, processInfo *models.ProcessInfo) error {
 	if strings.TrimSpace(processInfo.Namespace) == "" {
 		return fmt.Errorf("namespace is required")
 	}
@@ -85,18 +91,18 @@ func (s *Scanner) reportProcscanViolation(processInfo *models.ProcessInfo) error
 	ctx, cancel := context.WithTimeout(context.Background(), s.adminTimeout())
 	defer cancel()
 
-	return postJSON(ctx, s.adminEndpoint(), payload)
+	return postJSON(ctx, endpoint, payload)
 }
 
-func (s *Scanner) adminEndpoint() string {
+func (s *Scanner) adminEndpoint() (string, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	baseURL := strings.TrimSpace(s.config.Notifications.Admin.BaseURL)
 	if baseURL == "" {
-		baseURL = defaultAdminBaseURL
+		return "", false
 	}
-	return strings.TrimRight(baseURL, "/") + adminViolationsPath
+	return strings.TrimRight(baseURL, "/") + adminViolationsPath, true
 }
 
 func (s *Scanner) adminTimeout() time.Duration {
@@ -129,8 +135,17 @@ func postJSON(ctx context.Context, endpoint string, payload any) error {
 		_ = resp.Body.Close()
 	}()
 
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		bodyText := strings.TrimSpace(string(responseBody))
+		if bodyText != "" {
+			return fmt.Errorf("unexpected status %s: %s", resp.Status, bodyText)
+		}
+		return fmt.Errorf("unexpected status %s", resp.Status)
 	}
 	return nil
 }
