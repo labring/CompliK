@@ -95,7 +95,7 @@ type Config struct {
 
 // --- Business data models ---
 
-// ProcessInfo stores complete information for a single detected process sample.
+// ProcessInfo stores complete information for a detected suspicious process.
 type ProcessInfo struct {
 	PID         int
 	ProcessName string

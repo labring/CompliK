@@ -152,27 +152,19 @@ func (m *Manager) StartAllWithTimeout() error {
 		}(name, instance)
 	}
 
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	wg.Wait()
+	close(errChan)
 
-	select {
-	case <-done:
-		close(errChan)
-
-		var errors []error
-		for err := range errChan {
-			errors = append(errors, err)
-		}
-
-		if len(errors) > 0 {
-			return fmt.Errorf("failed to start %d plugins: %v", len(errors), errors)
-		}
-
-		return nil
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
 	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("failed to start %d plugins: %v", len(errors), errors)
+	}
+
+	return nil
 }
 
 func (m *Manager) StopAll() error {

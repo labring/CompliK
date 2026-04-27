@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:testpackage,wsl_v5 // Tests exercise internal plugin manager state directly.
 package plugin
 
 import (
@@ -298,7 +299,7 @@ var _ = Describe("PluginManager", func() {
 				{Name: "plugin2", Type: "compliance", Enabled: true},
 			}
 
-			manager.LoadPlugins(configs)
+			Expect(manager.LoadPlugins(configs)).To(Succeed())
 			err := manager.StartAll()
 
 			Expect(err).To(HaveOccurred())
@@ -319,7 +320,7 @@ var _ = Describe("PluginManager", func() {
 				{Name: "plugin2", Type: "compliance", Enabled: true},
 			}
 
-			manager.LoadPlugins(configs)
+			Expect(manager.LoadPlugins(configs)).To(Succeed())
 
 			start := time.Now()
 			err := manager.StartAll()
@@ -344,8 +345,8 @@ var _ = Describe("PluginManager", func() {
 				{Name: "plugin2", Type: "compliance", Enabled: true},
 			}
 
-			manager.LoadPlugins(configs)
-			manager.StartAll()
+			Expect(manager.LoadPlugins(configs)).To(Succeed())
+			Expect(manager.StartAll()).To(Succeed())
 
 			err := manager.StopAll()
 			Expect(err).NotTo(HaveOccurred())
@@ -367,8 +368,8 @@ var _ = Describe("PluginManager", func() {
 				{Name: "plugin2", Type: "compliance", Enabled: true},
 			}
 
-			manager.LoadPlugins(configs)
-			manager.StartAll()
+			Expect(manager.LoadPlugins(configs)).To(Succeed())
+			Expect(manager.StartAll()).To(Succeed())
 
 			err := manager.StopAll()
 			Expect(err).NotTo(HaveOccurred()) // Should not propagate errors
@@ -401,7 +402,7 @@ var _ = Describe("PluginManager", func() {
 						Type:    "test",
 						Enabled: true,
 					}
-					manager.LoadPlugin(cfg)
+					Expect(manager.LoadPlugin(cfg)).To(Succeed())
 				}(i)
 			}
 

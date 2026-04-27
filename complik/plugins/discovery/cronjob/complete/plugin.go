@@ -156,8 +156,8 @@ func (p *CompletePlugin) Start(
 			"startDelay": p.completeConfig.StartTimeSecond,
 		})
 		time.Sleep(time.Duration(p.completeConfig.StartTimeSecond) * time.Second)
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-		p.executeTask(ctx, eventBus)
+		taskCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+		p.executeTask(taskCtx, eventBus)
 		cancel()
 	} else {
 		p.log.Debug("Auto-start disabled, waiting for scheduled intervals")
@@ -177,8 +177,8 @@ func (p *CompletePlugin) Start(
 			case <-ticker.C:
 				p.log.Debug("Scheduled task trigger")
 
-				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-				p.executeTask(ctx, eventBus)
+				taskCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+				p.executeTask(taskCtx, eventBus)
 				cancel()
 			case <-ctx.Done():
 				p.log.Info("Context cancelled, stopping Complete plugin scheduler")

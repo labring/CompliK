@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:testpackage,wsl_v5 // Tests exercise internal event bus state directly.
 package eventbus
 
 import (
@@ -171,7 +172,8 @@ var _ = Describe("EventBus", func() {
 			}()
 
 			received := <-ch
-			receivedPayload := received.Payload.(ComplexPayload)
+			receivedPayload, ok := received.Payload.(ComplexPayload)
+			Expect(ok).To(BeTrue())
 			Expect(receivedPayload.ID).To(Equal(123))
 			Expect(receivedPayload.Name).To(Equal("test"))
 			Expect(receivedPayload.Items).To(Equal([]string{"a", "b", "c"}))
@@ -263,7 +265,8 @@ var _ = Describe("EventBus", func() {
 
 			go func() {
 				for event := range ch {
-					id := event.Payload.(int)
+					id, ok := event.Payload.(int)
+					Expect(ok).To(BeTrue())
 					received[id] = true
 					receivedCount++
 					if receivedCount == 50 {
@@ -311,10 +314,12 @@ var _ = Describe("EventBus", func() {
 				}
 			}()
 
-			received := []int{}
+			received := make([]int, 0, len(events))
 			for range 5 {
 				event := <-ch
-				received = append(received, event.Payload.(int))
+				payload, ok := event.Payload.(int)
+				Expect(ok).To(BeTrue())
+				received = append(received, payload)
 			}
 
 			Expect(received).To(Equal(events))
@@ -330,10 +335,12 @@ var _ = Describe("EventBus", func() {
 			}
 
 			// Should not block or panic
-			received := []int{}
+			received := make([]int, 0, 50)
 			for range 50 {
 				event := <-ch
-				received = append(received, event.Payload.(int))
+				payload, ok := event.Payload.(int)
+				Expect(ok).To(BeTrue())
+				received = append(received, payload)
 			}
 
 			Expect(received).To(HaveLen(50))

@@ -70,15 +70,7 @@ func (r *ContentReviewer) ReviewSiteContent(
 		"has_custom_rules": len(customRules) > 0,
 	})
 
-	requestData, err := r.prepareRequestData(content, customRules)
-	if err != nil {
-		r.log.Error("Failed to prepare request data", logger.Fields{
-			"error": err.Error(),
-			"host":  content.Host,
-		})
-
-		return nil, fmt.Errorf("failed to prepare request data: %w", err)
-	}
+	requestData := r.prepareRequestData(content, customRules)
 
 	r.log.Debug("Calling review API", logger.Fields{
 		"api_url": r.apiURL,
@@ -119,7 +111,7 @@ func (r *ContentReviewer) ReviewSiteContent(
 func (r *ContentReviewer) prepareRequestData(
 	content *models.CollectorInfo,
 	customRules []CustomKeywordRule,
-) (map[string]any, error) {
+) map[string]any {
 	base64Image := base64.StdEncoding.EncodeToString(content.Screenshot)
 	htmlContent := content.HTML
 
@@ -134,7 +126,7 @@ func (r *ContentReviewer) prepareRequestData(
 	}
 
 	var prompt string
-	if customRules == nil || len(customRules) == 0 {
+	if len(customRules) == 0 {
 		prompt = r.buildPrompt(htmlContent)
 	} else {
 		prompt = r.buildCustomPrompt(htmlContent, customRules)
@@ -163,7 +155,7 @@ func (r *ContentReviewer) prepareRequestData(
 		"response_format":       ReviewResultSchema,
 	}
 
-	return requestData, nil
+	return requestData
 }
 
 func (r *ContentReviewer) buildPrompt(htmlContent string) string {

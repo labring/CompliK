@@ -178,7 +178,7 @@ func (p *DevboxPlugin) Start(
 			case <-ticker.C:
 				p.log.Debug("Scheduled task trigger")
 
-				taskCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				taskCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 				p.executeTask(taskCtx, eventBus)
 				cancel()
 			case <-ctx.Done():

@@ -15,10 +15,13 @@
 // Package lark implements notification functionality for Lark (Feishu) messaging.
 // This file contains the notifier implementation that sends formatted messages
 // to Lark webhooks with support for whitelist filtering and rich card formatting.
+//
+//nolint:wsl_v5 // Card construction keeps related branches compact.
 package lark
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -157,9 +160,9 @@ func (f *Notifier) buildWhitelistMessage(
 		pathContent.WriteString("**Detection Paths:**\n")
 		for i, path := range results.Path {
 			if i < 5 {
-				pathContent.WriteString(fmt.Sprintf("  • %s\n", path))
+				fmt.Fprintf(&pathContent, "  • %s\n", path)
 			} else if i == 5 {
-				pathContent.WriteString(fmt.Sprintf("  • ... %d more paths\n", len(results.Path)-5))
+				fmt.Fprintf(&pathContent, "  • ... %d more paths\n", len(results.Path)-5)
 				break
 			}
 		}
@@ -299,7 +302,7 @@ func (f *Notifier) buildWhitelistMessage(
 				keywordContent.WriteString(", ")
 			}
 
-			keywordContent.WriteString(fmt.Sprintf("`%s`", keyword))
+			fmt.Fprintf(&keywordContent, "`%s`", keyword)
 		}
 
 		detectionElements = append(detectionElements, map[string]any{
@@ -321,8 +324,13 @@ func (f *Notifier) buildWhitelistMessage(
 		})
 	}
 
-	elements := append(basicInfoElements, whitelistElements...)
-
+	elements := make(
+		[]map[string]any,
+		0,
+		len(basicInfoElements)+len(whitelistElements)+len(detectionElements)+2,
+	)
+	elements = append(elements, basicInfoElements...)
+	elements = append(elements, whitelistElements...)
 	elements = append(elements, detectionElements...)
 
 	elements = append(elements,
@@ -404,9 +412,9 @@ func (f *Notifier) buildAlertMessage(results *models.DetectorInfo) map[string]an
 		pathContent.WriteString("**Detection Paths:**\n")
 		for i, path := range results.Path {
 			if i < 5 {
-				pathContent.WriteString(fmt.Sprintf("  • %s\n", path))
+				fmt.Fprintf(&pathContent, "  • %s\n", path)
 			} else if i == 5 {
-				pathContent.WriteString(fmt.Sprintf("  • ... %d more paths\n", len(results.Path)-5))
+				fmt.Fprintf(&pathContent, "  • ... %d more paths\n", len(results.Path)-5)
 				break
 			}
 		}
@@ -423,8 +431,7 @@ func (f *Notifier) buildAlertMessage(results *models.DetectorInfo) map[string]an
 	basicInfoElements = append(basicInfoElements, map[string]any{
 		"tag": "hr",
 	})
-	//nolint:gocritic
-	elements := append(basicInfoElements)
+	elements := basicInfoElements
 	if results.IsIllegal {
 		elements = append(elements, map[string]any{
 			"tag": "hr",
@@ -458,7 +465,7 @@ func (f *Notifier) buildAlertMessage(results *models.DetectorInfo) map[string]an
 					keywordContent.WriteString(", ")
 				}
 
-				keywordContent.WriteString(fmt.Sprintf("`%s`", keyword))
+				fmt.Fprintf(&keywordContent, "`%s`", keyword)
 			}
 
 			violationElements = append(violationElements, map[string]any{
@@ -537,15 +544,24 @@ func (f *Notifier) sendMessage(message LarkMessage) error {
 		return fmt.Errorf("failed to serialize message: %w", err)
 	}
 
-	resp, err := f.HTTPClient.Post(
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
 		f.WebhookURL,
-		"application/json",
 		bytes.NewBuffer(jsonData),
 	)
 	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := f.HTTPClient.Do(req)
+	if err != nil {
 		return fmt.Errorf("failed to send HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -559,7 +575,7 @@ func (f *Notifier) sendMessage(message LarkMessage) error {
 
 	if resp.StatusCode != http.StatusOK || larkResp.Code != 0 {
 		return fmt.Errorf(
-			"Lark webhook notification failed: HTTP status %d, Lark error code %d, error message: %s",
+			"lark webhook notification failed: HTTP status %d, Lark error code %d, error message: %s",
 			resp.StatusCode,
 			larkResp.Code,
 			larkResp.Msg,

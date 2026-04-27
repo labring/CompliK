@@ -115,8 +115,7 @@ func matchAny(text string, regexps []*regexp.Regexp) (bool, string) {
 	return false, ""
 }
 
-// AnalyzeProcess returns a process sample for blacklist hits. Whitelist matches
-// are marked as non-illegal so admin can keep the detection record.
+// AnalyzeProcess returns process info for blacklist hits after whitelist checks.
 // This function queries container info on-demand instead of using cache
 func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 	procDir := filepath.Join(p.ProcPath, strconv.Itoa(pid))
@@ -149,7 +148,13 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 	}
 	procLogger.WithField("reason", message).Info("Process matched blacklist rule")
 
-	// Step 2: Identify container main process
+	// Step 2: Check process whitelist
+	if p.isProcessWhitelisted(processName, cmdline) {
+		procLogger.Info("Process matched whitelist")
+		return nil, nil
+	}
+
+	// Step 3: Identify container main process
 	mainProcessPID := pid
 	processStatus, err := ReadProcessStatus(p.ProcPath, pid)
 	if err != nil {
@@ -172,10 +177,10 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 		}
 	}
 
-	// Step 3: Get container ID
+	// Step 4: Get container ID
 	containerID := p.getContainerIDFromPID(mainProcessPID)
 
-	// Step 4: Query container info on-demand when container metadata is available.
+	// Step 5: Query container info on-demand when container metadata is available.
 	var podName, namespace string
 	if containerID == "" {
 		procLogger.Debug("Unable to determine container ID, continue alerting without container metadata")
@@ -191,6 +196,15 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 		}
 	}
 
+	// Step 6: Check infrastructure whitelist
+	if (namespace != "" || podName != "") && p.isInfraWhitelisted(namespace, podName) {
+		procLogger.WithFields(logrus.Fields{
+			"namespace": namespace,
+			"pod":       podName,
+		}).Info("Infrastructure matched whitelist")
+		return nil, nil
+	}
+
 	processInfo := &models.ProcessInfo{
 		PID:         pid,
 		ProcessName: processName,
@@ -203,22 +217,7 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 		IsIllegal:   true,
 	}
 
-	// Step 5: Mark whitelist matches as legal samples.
-	if p.isProcessWhitelisted(processName, cmdline) {
-		procLogger.Info("Process matched whitelist")
-		processInfo.IsIllegal = false
-		return processInfo, nil
-	}
-	if (namespace != "" || podName != "") && p.isInfraWhitelisted(namespace, podName) {
-		procLogger.WithFields(logrus.Fields{
-			"namespace": namespace,
-			"pod":       podName,
-		}).Info("Infrastructure matched whitelist")
-		processInfo.IsIllegal = false
-		return processInfo, nil
-	}
-
-	// Step 6: Confirmed as suspicious process
+	// Step 7: Confirmed as suspicious process
 	procLogger.WithFields(logrus.Fields{
 		"namespace":        processInfo.Namespace,
 		"pod":              processInfo.PodName,

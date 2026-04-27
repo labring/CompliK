@@ -278,42 +278,29 @@ func (s *Scanner) scanProcesses() error {
 	}
 
 	if len(resultsByNamespace) == 0 {
-		legacy.L.Info("No process samples found in this scan round")
+		legacy.L.Info("Scan round found 0 suspicious processes")
 		return nil
-	}
-
-	illegalResultsByNamespace := make(map[string][]*models.ProcessInfo)
-	for namespace, processInfos := range resultsByNamespace {
-		illegalProcessInfos := filterIllegalProcessInfos(processInfos)
-		if len(illegalProcessInfos) > 0 {
-			illegalResultsByNamespace[namespace] = illegalProcessInfos
-		}
 	}
 
 	// Record suspicious process metrics
 	if s.metrics != nil {
-		for namespace, processInfos := range illegalResultsByNamespace {
+		for namespace, processInfos := range resultsByNamespace {
 			s.metrics.RecordSuspiciousProcesses(len(processInfos), namespace)
 		}
 	}
 
 	legacy.L.WithFields(logrus.Fields{
-		"namespaces_with_samples": len(resultsByNamespace),
-		"namespaces_with_illegal": len(illegalResultsByNamespace),
-	}).Info("Found process samples, starting grouped processing...")
+		"namespaces_with_violations": len(resultsByNamespace),
+	}).Info("Found suspicious processes, starting grouped processing...")
 
-	finalResults := make([]*alert.NamespaceScanResult, 0, len(illegalResultsByNamespace))
+	finalResults := make([]*alert.NamespaceScanResult, 0, len(resultsByNamespace))
 	for namespace, processInfos := range resultsByNamespace {
 		s.reportProcscanViolations(processInfos)
-		illegalProcessInfos := illegalResultsByNamespace[namespace]
-		if len(illegalProcessInfos) == 0 {
-			continue
-		}
 
 		labelResult := s.handleGroupedActions(namespace, currentConfig)
 		finalResults = append(finalResults, &alert.NamespaceScanResult{
 			Namespace:    namespace,
-			ProcessInfos: illegalProcessInfos,
+			ProcessInfos: processInfos,
 			LabelResult:  labelResult,
 		})
 	}
@@ -326,16 +313,6 @@ func (s *Scanner) scanProcesses() error {
 
 	legacy.L.Info("Scan round completed")
 	return nil
-}
-
-func filterIllegalProcessInfos(processInfos []*models.ProcessInfo) []*models.ProcessInfo {
-	illegalProcessInfos := make([]*models.ProcessInfo, 0, len(processInfos))
-	for _, processInfo := range processInfos {
-		if processInfo != nil && processInfo.IsIllegal {
-			illegalProcessInfos = append(illegalProcessInfos, processInfo)
-		}
-	}
-	return illegalProcessInfos
 }
 
 func (s *Scanner) handleGroupedActions(namespace string, config *models.Config) (labelResult string) {

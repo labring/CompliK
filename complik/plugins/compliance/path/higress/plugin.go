@@ -287,18 +287,18 @@ func (p *HigressPlugin) buildQuery(ingress models.DiscoveryInfo) string {
 	var builder strings.Builder
 
 	// Base query: filter by namespace and keywords
-	builder.WriteString(fmt.Sprintf(`{namespace="%s"} `, ingress.Namespace))
+	fmt.Fprintf(&builder, `{namespace="%s"} `, ingress.Namespace)
 
 	// Add path keyword search
 	if ingress.Host != "" {
-		builder.WriteString(fmt.Sprintf(`"%s" `, ingress.Host))
+		fmt.Fprintf(&builder, `"%s" `, ingress.Host)
 	}
 
 	// Add time range
-	builder.WriteString(fmt.Sprintf(`_time:%s `, p.config.TimeRange))
+	fmt.Fprintf(&builder, `_time:%s `, p.config.TimeRange)
 
 	// Add application filter
-	builder.WriteString(fmt.Sprintf(`app:="%s" `, p.config.App))
+	fmt.Fprintf(&builder, `app:="%s" `, p.config.App)
 
 	// Add JSON parsing and field extraction
 	builder.WriteString(`| unpack_json `)
@@ -339,7 +339,7 @@ func (p *HigressPlugin) sendLogQuery(query string) (*http.Response, error) {
 			"statusCode": resp.StatusCode,
 			"status":     resp.Status,
 		})
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		return nil, fmt.Errorf("response error, status code: %d", resp.StatusCode)
 	}
@@ -361,7 +361,7 @@ func (p *HigressPlugin) generateRequest(query string) (*http.Request, error) {
 		"url": baseURL,
 	})
 
-	req, err := http.NewRequest(http.MethodGet, baseURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, baseURL, nil)
 	if err != nil {
 		p.log.Error("Failed to create HTTP request", logger.Fields{
 			"url":   baseURL,

@@ -18,6 +18,7 @@
 package browser
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -28,8 +29,11 @@ import (
 	"github.com/bearslyricattack/CompliK/complik/plugins/compliance/collector/browser/utils"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
-	"golang.org/x/net/context"
 )
+
+type contextKey string
+
+const startTimeContextKey contextKey = "start_time"
 
 type CollectorInfo struct {
 	DiscoveryName string `json:"discovery_name"`
@@ -184,7 +188,7 @@ func (s *Collector) CollectorAndScreenshot(
 		return nil, err
 	}
 
-	if startTime, ok := taskCtx.Value("start_time").(time.Time); ok {
+	if startTime, ok := taskCtx.Value(startTimeContextKey).(time.Time); ok {
 		duration = time.Duration(time.Since(startTime).Milliseconds())
 	} else {
 		duration = 0
