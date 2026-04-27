@@ -115,8 +115,7 @@ func matchAny(text string, regexps []*regexp.Regexp) (bool, string) {
 	return false, ""
 }
 
-// AnalyzeProcess analyzes a single process to determine if it's malicious
-// Returns process info if malicious, nil otherwise
+// AnalyzeProcess returns process info for blacklist hits after whitelist checks.
 // This function queries container info on-demand instead of using cache
 func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 	procDir := filepath.Join(p.ProcPath, strconv.Itoa(pid))
@@ -149,9 +148,9 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 	}
 	procLogger.WithField("reason", message).Info("Process matched blacklist rule")
 
-	// Step 2: Check process whitelist (before heavy operations)
+	// Step 2: Check process whitelist
 	if p.isProcessWhitelisted(processName, cmdline) {
-		procLogger.Info("Process is whitelisted, ignoring")
+		procLogger.Info("Process matched whitelist")
 		return nil, nil
 	}
 
@@ -202,42 +201,32 @@ func (p *Processor) AnalyzeProcess(pid int) (*models.ProcessInfo, error) {
 		procLogger.WithFields(logrus.Fields{
 			"namespace": namespace,
 			"pod":       podName,
-		}).Info("Infrastructure (namespace/pod) is whitelisted, ignoring")
+		}).Info("Infrastructure matched whitelist")
 		return nil, nil
 	}
 
-	displayContainerID := containerID
-	if displayContainerID == "" {
-		displayContainerID = "unknown"
-	}
-	displayPodName := podName
-	if displayPodName == "" {
-		displayPodName = "unknown"
-	}
-	displayNamespace := namespace
-	if displayNamespace == "" {
-		displayNamespace = "unknown"
-	}
-
-	// Step 7: Confirmed as suspicious process
-	procLogger.WithFields(logrus.Fields{
-		"namespace":        displayNamespace,
-		"pod":              displayPodName,
-		"containerID":      displayContainerID,
-		"malicious_pid":    pid,
-		"main_process_pid": mainProcessPID,
-	}).Warn("Confirmed malicious process detected")
-
-	return &models.ProcessInfo{
+	processInfo := &models.ProcessInfo{
 		PID:         pid,
 		ProcessName: processName,
 		Command:     cmdline,
 		Timestamp:   time.Now().Format(time.RFC3339),
-		ContainerID: displayContainerID,
+		ContainerID: displayValueOrUnknown(containerID),
 		Message:     message,
-		PodName:     displayPodName,
-		Namespace:   displayNamespace,
-	}, nil
+		PodName:     displayValueOrUnknown(podName),
+		Namespace:   displayValueOrUnknown(namespace),
+		IsIllegal:   true,
+	}
+
+	// Step 7: Confirmed as suspicious process
+	procLogger.WithFields(logrus.Fields{
+		"namespace":        processInfo.Namespace,
+		"pod":              processInfo.PodName,
+		"containerID":      processInfo.ContainerID,
+		"malicious_pid":    pid,
+		"main_process_pid": mainProcessPID,
+	}).Warn("Confirmed malicious process detected")
+
+	return processInfo, nil
 }
 
 // isBlacklisted checks if a process name or command line matches blacklist rules
@@ -319,4 +308,11 @@ func isHexString(s string) bool {
 		}
 	}
 	return true
+}
+
+func displayValueOrUnknown(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "unknown"
+	}
+	return value
 }

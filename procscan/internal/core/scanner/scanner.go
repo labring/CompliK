@@ -278,7 +278,7 @@ func (s *Scanner) scanProcesses() error {
 	}
 
 	if len(resultsByNamespace) == 0 {
-		legacy.L.Info("No suspicious processes found in this scan round")
+		legacy.L.Info("Scan round found 0 suspicious processes")
 		return nil
 	}
 
@@ -289,9 +289,14 @@ func (s *Scanner) scanProcesses() error {
 		}
 	}
 
-	legacy.L.WithField("count", len(resultsByNamespace)).Info("Found namespaces with suspicious processes, starting grouped processing...")
+	legacy.L.WithFields(logrus.Fields{
+		"namespaces_with_violations": len(resultsByNamespace),
+	}).Info("Found suspicious processes, starting grouped processing...")
+
 	finalResults := make([]*alert.NamespaceScanResult, 0, len(resultsByNamespace))
 	for namespace, processInfos := range resultsByNamespace {
+		s.reportProcscanViolations(processInfos)
+
 		labelResult := s.handleGroupedActions(namespace, currentConfig)
 		finalResults = append(finalResults, &alert.NamespaceScanResult{
 			Namespace:    namespace,
@@ -300,8 +305,10 @@ func (s *Scanner) scanProcesses() error {
 		})
 	}
 
-	if err := alert.SendGlobalBatchAlert(finalResults, currentConfig.Notifications.Lark.Webhook, currentConfig.Notifications.Region); err != nil {
-		legacy.L.WithError(err).Error("Failed to send global batch Lark alert")
+	if len(finalResults) > 0 {
+		if err := alert.SendGlobalBatchAlert(finalResults, currentConfig.Notifications.Lark.Webhook, currentConfig.Notifications.Region); err != nil {
+			legacy.L.WithError(err).Error("Failed to send global batch Lark alert")
+		}
 	}
 
 	legacy.L.Info("Scan round completed")

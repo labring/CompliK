@@ -21,6 +21,10 @@ data:
     notifications:
       lark:
         webhook: {{ .Values.config.notifications.lark.webhook | quote }}
+      admin:
+        base_url: {{ .Values.config.notifications.admin.base_url | quote }}
+        timeout: {{ .Values.config.notifications.admin.timeout | quote }}
+      region: {{ .Values.config.notifications.region | quote }}
 
     detectionRules:
       blacklist:

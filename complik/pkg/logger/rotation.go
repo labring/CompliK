@@ -186,18 +186,6 @@ func (w *RotatingFileWriter) cleanupBackups() {
 	}
 }
 
-// cleanupOldFiles periodically cleans up old log files
-func (w *RotatingFileWriter) cleanupOldFiles() {
-	ticker := time.NewTicker(24 * time.Hour)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		w.mu.Lock()
-		w.cleanupBackups()
-		w.mu.Unlock()
-	}
-}
-
 // MultiWriter writes to multiple output destinations simultaneously
 type MultiWriter struct {
 	writers []io.Writer

@@ -155,6 +155,7 @@ func configureFromEnv() {
 
 	// Log file output
 	if logFile := os.Getenv("COMPLIK_LOG_FILE"); logFile != "" {
+		//nolint:gosec // COMPLIK_LOG_FILE intentionally controls the log output path.
 		file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o666)
 		if err == nil {
 			globalLogger.SetOutput(file)
@@ -358,10 +359,10 @@ func (l *StandardLogger) formatText(level LogLevel, msg string, fields Fields) s
 	levelStr := logLevelNames[level]
 	if l.colored {
 		builder.WriteString(logLevelColors[level])
-		builder.WriteString(fmt.Sprintf("[%-5s]", levelStr))
+		fmt.Fprintf(&builder, "[%-5s]", levelStr)
 		builder.WriteString(resetColor)
 	} else {
-		builder.WriteString(fmt.Sprintf("[%-5s]", levelStr))
+		fmt.Fprintf(&builder, "[%-5s]", levelStr)
 	}
 
 	builder.WriteString(" ")
@@ -392,7 +393,7 @@ func (l *StandardLogger) formatText(level LogLevel, msg string, fields Fields) s
 				builder.WriteString(", ")
 			}
 
-			builder.WriteString(fmt.Sprintf("%s=%v", k, v))
+			fmt.Fprintf(&builder, "%s=%v", k, v)
 
 			first = false
 		}

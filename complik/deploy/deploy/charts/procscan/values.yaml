@@ -65,6 +65,10 @@ config:
   notifications:
     lark:
       webhook: ""
+    admin:
+      base_url: "http://sealos-complik-admin:8080"
+      timeout: "10s"
+    region: "hzh"
 
   detectionRules:
     blacklist:

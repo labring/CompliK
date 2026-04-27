@@ -172,7 +172,7 @@ func (p *BrowserPlugin) Start(
 					ctx,
 					time.Duration(p.browserConfig.CollectorTimeoutSecond)*time.Second,
 				)
-				taskCtx = context.WithValue(taskCtx, "start_time", time.Now())
+				taskCtx = context.WithValue(taskCtx, startTimeContextKey, time.Now())
 
 				defer cancel()
 

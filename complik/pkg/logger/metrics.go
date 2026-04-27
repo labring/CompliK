@@ -142,7 +142,6 @@ func (mc *MetricsCollector) updateSystemMetrics() {
 		mc.metrics.GCPauseTime = time.Duration(m.PauseTotalNs)
 	}
 
-	mc.metrics.GCPauseTime = time.Duration(m.PauseTotalNs)
 	mc.metrics.Uptime = time.Since(mc.metrics.StartTime)
 }
 
@@ -193,5 +192,3 @@ func (mc *MetricsCollector) logMetrics() {
 		})
 	}
 }
-
-var globalMetrics *MetricsCollector

@@ -46,6 +46,10 @@ notifications:
     timeout: "30s"
     # Retry count on send failure (recommended: 1-3 times)
     retry_count: 3
+  # Admin API configuration
+  admin:
+    base_url: "http://sealos-complik-admin:8080"
+    timeout: "10s"
   # Region configuration
   region: "hzh"
 
