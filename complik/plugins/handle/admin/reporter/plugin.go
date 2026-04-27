@@ -169,10 +169,6 @@ func (p *AdminReporterPlugin) Start(
 					continue
 				}
 
-				if strings.TrimSpace(result.Region) == "" {
-					result.Region = p.reporterConfig.Region
-				}
-
 				if err := p.reportViolation(ctx, result); err != nil {
 					p.log.Error("Failed to report detector event to admin", logger.Fields{
 						"error":     err.Error(),
@@ -206,9 +202,14 @@ func (p *AdminReporterPlugin) reportViolation(
 		return errors.New("namespace is required for admin reporting")
 	}
 
+	region := strings.TrimSpace(result.Region)
+	if region == "" {
+		region = p.reporterConfig.Region
+	}
+
 	requestBody := complikViolationRequest{
 		Namespace:     result.Namespace,
-		Region:        result.Region,
+		Region:        region,
 		DiscoveryName: result.DiscoveryName,
 		CollectorName: result.CollectorName,
 		DetectorName:  result.DetectorName,
