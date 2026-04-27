@@ -144,6 +144,7 @@ func (p *AdminReporterPlugin) Start(
 
 	subscribe := eventBus.Subscribe(constants.DetectorTopic)
 	go func() {
+		defer eventBus.Unsubscribe(constants.DetectorTopic, subscribe)
 		defer func() {
 			if r := recover(); r != nil {
 				p.log.Error("Plugin goroutine panic", logger.Fields{"panic": r})
