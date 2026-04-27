@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -97,6 +98,7 @@ func (p *AdminReporterPlugin) getDefaultConfig() ReporterConfig {
 
 func (p *AdminReporterPlugin) loadConfig(setting string) error {
 	p.reporterConfig = p.getDefaultConfig()
+
 	if strings.TrimSpace(setting) == "" {
 		return errors.New("configuration cannot be empty")
 	}
@@ -105,9 +107,11 @@ func (p *AdminReporterPlugin) loadConfig(setting string) error {
 	if err := json.Unmarshal([]byte(setting), &configFromJSON); err != nil {
 		return err
 	}
+
 	if strings.TrimSpace(configFromJSON.Region) != "" {
 		p.reporterConfig.Region = strings.TrimSpace(configFromJSON.Region)
 	}
+
 	if strings.TrimSpace(configFromJSON.AdminBaseURL) != "" {
 		if secureValue, err := config.GetSecureValue(configFromJSON.AdminBaseURL); err == nil {
 			p.reporterConfig.AdminBaseURL = secureValue
@@ -115,6 +119,7 @@ func (p *AdminReporterPlugin) loadConfig(setting string) error {
 			p.reporterConfig.AdminBaseURL = configFromJSON.AdminBaseURL
 		}
 	}
+
 	if configFromJSON.AdminTimeoutSecond > 0 {
 		p.reporterConfig.AdminTimeoutSecond = configFromJSON.AdminTimeoutSecond
 	}
@@ -124,6 +129,7 @@ func (p *AdminReporterPlugin) loadConfig(setting string) error {
 		"admin_base_url": p.reporterConfig.AdminBaseURL,
 		"admin_timeout":  p.reporterConfig.AdminTimeoutSecond,
 	})
+
 	return nil
 }
 
@@ -151,17 +157,21 @@ func (p *AdminReporterPlugin) Start(
 					p.log.Info("Event subscription channel closed")
 					return
 				}
+
 				result, ok := event.Payload.(*models.DetectorInfo)
 				if !ok {
 					p.log.Error("Invalid event payload type", logger.Fields{
 						"expected": "*models.DetectorInfo",
 						"actual":   fmt.Sprintf("%T", event.Payload),
 					})
+
 					continue
 				}
+
 				if strings.TrimSpace(result.Region) == "" {
 					result.Region = p.reporterConfig.Region
 				}
+
 				if err := p.reportViolation(result); err != nil {
 					p.log.Error("Failed to report detector event to admin", logger.Fields{
 						"error":     err.Error(),
@@ -185,10 +195,11 @@ func (p *AdminReporterPlugin) Stop(ctx context.Context) error {
 
 func (p *AdminReporterPlugin) reportViolation(result *models.DetectorInfo) error {
 	if result == nil {
-		return fmt.Errorf("detector result is nil")
+		return errors.New("detector result is nil")
 	}
+
 	if strings.TrimSpace(result.Namespace) == "" {
-		return fmt.Errorf("namespace is required for admin reporting")
+		return errors.New("namespace is required for admin reporting")
 	}
 
 	requestBody := complikViolationRequest{
@@ -226,6 +237,7 @@ func (p *AdminReporterPlugin) adminTimeout() time.Duration {
 	if timeoutSecond <= 0 {
 		timeoutSecond = defaultAdminTimeoutSec
 	}
+
 	return time.Duration(timeoutSecond) * time.Second
 }
 
@@ -233,15 +245,12 @@ func isComplikTestEvent(result *models.DetectorInfo) bool {
 	if result == nil {
 		return false
 	}
+
 	if strings.EqualFold(result.Name, "程序启动，飞书通知测试") {
 		return true
 	}
-	for _, keyword := range result.Keywords {
-		if keyword == "程序启动" {
-			return true
-		}
-	}
-	return false
+
+	return slices.Contains(result.Keywords, "程序启动")
 }
 
 func postJSON(ctx context.Context, endpoint string, payload any) error {
@@ -254,6 +263,7 @@ func postJSON(ctx context.Context, endpoint string, payload any) error {
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -265,5 +275,6 @@ func postJSON(ctx context.Context, endpoint string, payload any) error {
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
+
 	return nil
 }
