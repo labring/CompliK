@@ -172,7 +172,7 @@ func (p *AdminReporterPlugin) Start(
 					result.Region = p.reporterConfig.Region
 				}
 
-				if err := p.reportViolation(result); err != nil {
+				if err := p.reportViolation(ctx, result); err != nil {
 					p.log.Error("Failed to report detector event to admin", logger.Fields{
 						"error":     err.Error(),
 						"host":      result.Host,
@@ -193,7 +193,10 @@ func (p *AdminReporterPlugin) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (p *AdminReporterPlugin) reportViolation(result *models.DetectorInfo) error {
+func (p *AdminReporterPlugin) reportViolation(
+	parentCtx context.Context,
+	result *models.DetectorInfo,
+) error {
 	if result == nil {
 		return errors.New("detector result is nil")
 	}
@@ -222,10 +225,10 @@ func (p *AdminReporterPlugin) reportViolation(result *models.DetectorInfo) error
 		RawPayload:    result,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), p.adminTimeout())
+	requestCtx, cancel := context.WithTimeout(parentCtx, p.adminTimeout())
 	defer cancel()
 
-	return postJSON(ctx, p.adminEndpoint(), requestBody)
+	return postJSON(requestCtx, p.adminEndpoint(), requestBody)
 }
 
 func (p *AdminReporterPlugin) adminEndpoint() string {
