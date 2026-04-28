@@ -89,9 +89,6 @@ plugins:
     maxWorkers: 20
     tableName: "CustomKeywordRule"
 
-  postgres:
-    enabled: true
-
   adminReporter:
     enabled: true
 
