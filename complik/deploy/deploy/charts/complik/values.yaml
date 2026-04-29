@@ -71,7 +71,6 @@ plugins:
 
   custom:
     enabled: false
-    tickerMinute: 800
     maxWorkers: 20
 
   adminReporter:

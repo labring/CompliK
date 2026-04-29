@@ -68,7 +68,6 @@ data:
         enabled: {{ .Values.plugins.custom.enabled }}
         settings: |
           {
-            "tickerMinute": {{ .Values.plugins.custom.tickerMinute }},
             "maxWorkers": {{ .Values.plugins.custom.maxWorkers }},
             "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
             "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}

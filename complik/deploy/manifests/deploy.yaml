@@ -75,7 +75,6 @@ data:
         enabled: false
         settings: |
           {
-            "tickerMinute": 800,
             "maxWorkers": 20,
             "adminBaseURL": "http://sealos-complik-admin:8080",
             "adminTimeoutSecond": 10

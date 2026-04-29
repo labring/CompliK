@@ -63,7 +63,6 @@ func (p *CustomPlugin) Type() string {
 }
 
 type CustomConfig struct {
-	TickerMinute       int    `json:"tickerMinute"`
 	MaxWorkers         int    `json:"maxWorkers"`
 	APIKey             string `json:"apiKey"`
 	APIBase            string `json:"apiBase"`
@@ -75,14 +74,13 @@ type CustomConfig struct {
 
 func (p *CustomPlugin) getDefaultConfig() CustomConfig {
 	return CustomConfig{
-		TickerMinute:       600,
 		MaxWorkers:         20,
 		AdminBaseURL:       config.DefaultAdminBaseURL,
 		AdminTimeoutSecond: config.DefaultAdminTimeoutSecond,
 	}
 }
 
-func (p *CustomPlugin) loadConfig(setting string) error {
+func (p *CustomPlugin) loadConfig(ctx context.Context, setting string) error {
 	p.customConfig = p.getDefaultConfig()
 	p.log.Debug("Loading custom detector configuration")
 
@@ -96,9 +94,6 @@ func (p *CustomPlugin) loadConfig(setting string) error {
 		return err
 	}
 
-	if configFromJSON.TickerMinute > 0 {
-		p.customConfig.TickerMinute = configFromJSON.TickerMinute
-	}
 	if configFromJSON.MaxWorkers > 0 {
 		p.customConfig.MaxWorkers = configFromJSON.MaxWorkers
 	}
@@ -112,7 +107,7 @@ func (p *CustomPlugin) loadConfig(setting string) error {
 	if configFromJSON.AdminTimeoutSecond > 0 {
 		p.customConfig.AdminTimeoutSecond = configFromJSON.AdminTimeoutSecond
 	}
-	if err := p.applyModelRuntimeConfig(context.Background()); err != nil {
+	if err := p.applyModelRuntimeConfig(ctx); err != nil {
 		return fmt.Errorf("failed to apply model runtime config from admin: %w", err)
 	}
 	if strings.TrimSpace(p.customConfig.APIKey) == "" ||
@@ -121,7 +116,7 @@ func (p *CustomPlugin) loadConfig(setting string) error {
 		strings.TrimSpace(p.customConfig.Model) == "" {
 		return errors.New("model_runtime config from admin is incomplete")
 	}
-	if err := p.readFromAdminConfigs(context.Background()); err != nil {
+	if err := p.readFromAdminConfigs(ctx); err != nil {
 		return fmt.Errorf("failed to load custom rules from admin: %w", err)
 	}
 
@@ -130,7 +125,6 @@ func (p *CustomPlugin) loadConfig(setting string) error {
 		"model":          p.customConfig.Model,
 		"admin_base_url": p.customConfig.AdminBaseURL,
 		"max_workers":    p.customConfig.MaxWorkers,
-		"ticker_minutes": p.customConfig.TickerMinute,
 		"keyword_count":  len(p.keywords),
 	})
 	return nil
@@ -142,7 +136,7 @@ func (p *CustomPlugin) Start(
 	eventBus *eventbus.EventBus,
 ) error {
 	p.log.Info("Starting custom detector plugin")
-	if err := p.loadConfig(cfg.Settings); err != nil {
+	if err := p.loadConfig(ctx, cfg.Settings); err != nil {
 		p.log.Error("Failed to load configuration", logger.Fields{"error": err.Error()})
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
@@ -159,12 +153,9 @@ func (p *CustomPlugin) Start(
 
 	subscribe := eventBus.Subscribe(constants.CollectorTopic)
 	semaphore := make(chan struct{}, p.customConfig.MaxWorkers)
-	ticker := time.NewTicker(time.Duration(p.customConfig.TickerMinute) * time.Minute)
-	defer ticker.Stop()
 
 	p.log.Info("Custom detector started", logger.Fields{
-		"worker_pool_size":         p.customConfig.MaxWorkers,
-		"refresh_interval_minutes": p.customConfig.TickerMinute,
+		"worker_pool_size": p.customConfig.MaxWorkers,
 	})
 
 	for {
@@ -215,13 +206,6 @@ func (p *CustomPlugin) Start(
 
 				eventBus.Publish(constants.DetectorTopic, eventbus.Event{Payload: result})
 			}(event)
-		case <-ticker.C:
-			p.log.Debug("Scheduled custom rules refresh triggered")
-			if err := p.refreshRules(ctx); err != nil {
-				p.log.Error("Failed to refresh custom rules from admin", logger.Fields{"error": err.Error()})
-				return err
-			}
-			p.log.Info("Keywords refreshed from admin configs", logger.Fields{"keyword_count": len(p.keywords)})
 		case <-ctx.Done():
 			p.log.Info("Shutting down custom detector plugin")
 			for range p.customConfig.MaxWorkers {
@@ -236,10 +220,6 @@ func (p *CustomPlugin) Start(
 func (p *CustomPlugin) Stop(ctx context.Context) error {
 	p.log.Info("Stopping custom detector plugin")
 	return nil
-}
-
-func (p *CustomPlugin) refreshRules(ctx context.Context) error {
-	return p.readFromAdminConfigs(ctx)
 }
 
 func (p *CustomPlugin) readFromAdminConfigs(ctx context.Context) error {
