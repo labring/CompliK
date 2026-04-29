@@ -23,7 +23,9 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM debian:bookworm-slim
 
 ENV CHROME_BIN=/usr/bin/chromium \
-    ROD_BROWSER_BIN=/usr/bin/chromium
+    ROD_BROWSER_BIN=/usr/bin/chromium \
+    HOME=/tmp \
+    XDG_CACHE_HOME=/tmp/.cache
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -35,6 +37,8 @@ COPY --from=builder /out/manager /manager
 
 RUN echo "nonroot:x:65532:" >> /etc/group && \
     echo "nonroot:x:65532:65532:nonroot:/nonexistent:/usr/sbin/nologin" >> /etc/passwd && \
+    mkdir -p /tmp/.cache/rod && \
+    chmod 1777 /tmp/.cache /tmp/.cache/rod && \
     chmod +x /manager
 
 EXPOSE 8428
