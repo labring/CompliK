@@ -79,14 +79,6 @@ plugins:
 
   lark:
     enabled: true
-    enabledWhitelist: false
-    host: ""
-    port: "3306"
-    username: "root"
-    password: ""
-    databaseName: "complik"
-    tableName: "whitelist"
-    hostTimeoutHour: 168
 
 config:
   logging:

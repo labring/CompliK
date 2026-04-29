@@ -89,15 +89,7 @@ data:
           {
             "region": {{ .Values.external.region | quote }},
             "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
-            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }},
-            "enabled_whitelist": {{ .Values.plugins.lark.enabledWhitelist }},
-            "host": {{ .Values.plugins.lark.host | quote }},
-            "port": {{ .Values.plugins.lark.port | quote }},
-            "username": {{ .Values.plugins.lark.username | quote }},
-            "password": {{ .Values.plugins.lark.password | quote }},
-            "databaseName": {{ .Values.plugins.lark.databaseName | quote }},
-            "tableName": {{ .Values.plugins.lark.tableName | quote }},
-            "host_timeout_hour": {{ .Values.plugins.lark.hostTimeoutHour }}
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}
           }
     logging:
       level: {{ .Values.config.logging.level | quote }}

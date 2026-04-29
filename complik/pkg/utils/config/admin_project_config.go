@@ -123,40 +123,28 @@ func ListAdminProjectConfigsByType(
 	}
 
 	resp, err := adminHTTPClient(timeoutSecond).Do(req)
-	if err == nil {
-		defer func() { _ = resp.Body.Close() }()
-		body, readErr := io.ReadAll(resp.Body)
-		if readErr != nil {
-			return nil, fmt.Errorf("read admin config list-by-type response failed: %w", readErr)
-		}
-		if resp.StatusCode == http.StatusOK {
-			var cfgs []AdminProjectConfig
-			if err := json.Unmarshal(body, &cfgs); err != nil {
-				return nil, fmt.Errorf("decode admin config list-by-type response failed: %w", err)
-			}
-			return cfgs, nil
-		}
+	if err != nil {
+		return nil, fmt.Errorf("request admin config list-by-type failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read admin config list-by-type response failed: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(
+			"admin config list-by-type api returned %d: %s",
+			resp.StatusCode,
+			strings.TrimSpace(string(body)),
+		)
 	}
 
-	cfgs, listErr := ListAdminProjectConfigs(ctx, adminBaseURL, timeoutSecond)
-	if listErr != nil {
-		if err != nil {
-			return nil, fmt.Errorf(
-				"request admin config list-by-type failed: %w; fallback full list failed: %v",
-				err,
-				listErr,
-			)
-		}
-		return nil, listErr
+	var cfgs []AdminProjectConfig
+	if err := json.Unmarshal(body, &cfgs); err != nil {
+		return nil, fmt.Errorf("decode admin config list-by-type response failed: %w", err)
 	}
-
-	filtered := make([]AdminProjectConfig, 0)
-	for _, cfg := range cfgs {
-		if strings.TrimSpace(cfg.ConfigType) == trimmedType {
-			filtered = append(filtered, cfg)
-		}
-	}
-	return filtered, nil
+	return cfgs, nil
 }
 
 func LoadSingleAdminProjectConfigByType(

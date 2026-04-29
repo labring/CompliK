@@ -89,13 +89,7 @@ plugins:
       {
         "region": "${REGION}",
         "adminBaseURL": "http://sealos-complik-admin:8080",
-        "adminTimeoutSecond": 10,
-        "enabled_whitelist": true,
-        "host": "${LARK_DB_HOST}",
-        "port": "${LARK_DB_PORT}",
-        "username": "${LARK_DB_USERNAME}",
-        "password": "${LARK_DB_PASSWORD}",
-        "host_timeout_hour": 168
+        "adminTimeoutSecond": 10
       }
 
 logging:

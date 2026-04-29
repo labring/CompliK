@@ -82,7 +82,7 @@ func (p *SafetyPlugin) getDefaultConfig() SafetyConfig {
 	}
 }
 
-func (p *SafetyPlugin) loadConfig(setting string) error {
+func (p *SafetyPlugin) loadConfig(ctx context.Context, setting string) error {
 	p.safetyConfig = p.getDefaultConfig()
 	p.log.Debug("Loading safety detector configuration")
 
@@ -114,10 +114,10 @@ func (p *SafetyPlugin) loadConfig(setting string) error {
 	if safetyConfig.AdminTimeoutSecond > 0 {
 		p.safetyConfig.AdminTimeoutSecond = safetyConfig.AdminTimeoutSecond
 	}
-	if err := p.applyModelRuntimeConfig(context.Background()); err != nil {
+	if err := p.applyModelRuntimeConfig(ctx); err != nil {
 		return fmt.Errorf("failed to apply model runtime config from admin: %w", err)
 	}
-	if err := p.applySafetyPromptRules(context.Background()); err != nil {
+	if err := p.applySafetyPromptRules(ctx); err != nil {
 		return fmt.Errorf("failed to apply safety prompt rules from admin: %w", err)
 	}
 	if strings.TrimSpace(p.safetyConfig.APIKey) == "" ||
@@ -230,7 +230,7 @@ func (p *SafetyPlugin) Start(
 ) error {
 	p.log.Info("Starting safety detector plugin")
 
-	err := p.loadConfig(config.Settings)
+	err := p.loadConfig(ctx, config.Settings)
 	if err != nil {
 		p.log.Error("Failed to load configuration", logger.Fields{
 			"error": err.Error(),
