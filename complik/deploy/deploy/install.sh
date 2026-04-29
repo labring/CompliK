@@ -10,6 +10,8 @@ warn() {
 
 NAMESPACE=${NAMESPACE:-"complik"}
 INSTALL_PROCSCAN=${INSTALL_PROCSCAN:-"false"}
+ADMIN_BASE_URL=${ADMIN_BASE_URL:-"http://sealos-complik-admin:8080"}
+ADMIN_TIMEOUT_SECOND=${ADMIN_TIMEOUT_SECOND:-10}
 
 print "Deploying database..."
 helm upgrade -i complik-db -n ${NAMESPACE} charts/complik-database --wait --create-namespace
@@ -22,12 +24,12 @@ DB_PASSWORD=$(kubectl get secret -n ${NAMESPACE} complik-db-conn-credential -o j
 
 print "Deploying CompliK service..."
 helm upgrade -i complik-service -n ${NAMESPACE} charts/complik \
-  --set external.database.host="${DB_HOST}" \
-  --set external.database.port="${DB_PORT}" \
-  --set external.database.username="${DB_USERNAME}" \
-  --set external.database.password="${DB_PASSWORD}" \
-  --set external.ai.apiKey="${AI_API_KEY:-""}" \
-  --set external.lark.webhook="${LARK_WEBHOOK:-""}" \
+  --set external.admin.baseURL="${ADMIN_BASE_URL}" \
+  --set external.admin.timeoutSecond="${ADMIN_TIMEOUT_SECOND}" \
+  --set plugins.lark.host="${DB_HOST}" \
+  --set plugins.lark.port="${DB_PORT}" \
+  --set plugins.lark.username="${DB_USERNAME}" \
+  --set plugins.lark.password="${DB_PASSWORD}" \
   --set procscan.enabled="${INSTALL_PROCSCAN}" \
   --create-namespace
 

@@ -59,6 +59,7 @@ func (r *ContentReviewer) ReviewSiteContent(
 	content *models.CollectorInfo,
 	name string,
 	customRules []CustomKeywordRule,
+	safetyPrompt string,
 ) (*models.DetectorInfo, error) {
 	if content == nil {
 		r.log.Error("Review called with nil content")
@@ -68,9 +69,10 @@ func (r *ContentReviewer) ReviewSiteContent(
 	r.log.Debug("Preparing review request", logger.Fields{
 		"host":             content.Host,
 		"has_custom_rules": len(customRules) > 0,
+		"has_safety_rules": strings.TrimSpace(safetyPrompt) != "",
 	})
 
-	requestData := r.prepareRequestData(content, customRules)
+	requestData := r.prepareRequestData(content, customRules, safetyPrompt)
 
 	r.log.Debug("Calling review API", logger.Fields{
 		"api_url": r.apiURL,
@@ -111,6 +113,7 @@ func (r *ContentReviewer) ReviewSiteContent(
 func (r *ContentReviewer) prepareRequestData(
 	content *models.CollectorInfo,
 	customRules []CustomKeywordRule,
+	safetyPrompt string,
 ) map[string]any {
 	base64Image := base64.StdEncoding.EncodeToString(content.Screenshot)
 	htmlContent := content.HTML
@@ -126,10 +129,13 @@ func (r *ContentReviewer) prepareRequestData(
 	}
 
 	var prompt string
-	if len(customRules) == 0 {
-		prompt = r.buildPrompt(htmlContent)
-	} else {
+	switch {
+	case customRules != nil && len(customRules) > 0:
 		prompt = r.buildCustomPrompt(htmlContent, customRules)
+	case strings.TrimSpace(safetyPrompt) != "":
+		prompt = r.buildSafetyPromptFromRules(htmlContent, safetyPrompt)
+	default:
+		prompt = r.buildPrompt(htmlContent)
 	}
 
 	requestData := map[string]any{
@@ -156,6 +162,41 @@ func (r *ContentReviewer) prepareRequestData(
 	}
 
 	return requestData
+}
+
+func (r *ContentReviewer) buildSafetyPromptFromRules(
+	htmlContent string,
+	safetyPrompt string,
+) string {
+	htmlBlock := "```html\n" + htmlContent + "\n```"
+	return fmt.Sprintf(`# Role: Content Analysis and Compliance Checker
+
+# Goal:
+1. Provide a brief one-sentence description of the webpage content or purpose.
+2. Extract up to 5 keywords relevant to the webpage.
+3. Determine whether the webpage contains illegal or non-compliant content according to the safety rules below.
+
+# Safety Rules:
+%s
+
+# Important Notes:
+I am providing you with both a webpage screenshot and HTML code. Please analyze both sources comprehensively. Some content may be more obvious in the screenshot, while other content may need to be analyzed from the HTML code.
+If the page shows 404 errors, various errors, blank pages, or missing resources, it should be considered compliant.
+
+# HTML Code Excerpt:
+%s
+
+# Output:
+Please output strictly in the following JSON format without any additional explanation or text:
+
+{
+  "description": "<Generated webpage description>",
+  "keywords": ["<keyword1>", "<keyword2>", "<keyword3>", "<keyword4>", "<keyword5>"],
+  "compliance": {
+    "is_illegal": "<Yes/No>",
+    "explanation": "<Brief explanation listing specific violated categories and evidence>"
+  }
+}`, strings.TrimSpace(safetyPrompt), htmlBlock)
 }
 
 func (r *ContentReviewer) buildPrompt(htmlContent string) string {
@@ -208,24 +249,36 @@ Please output strictly in the following JSON format without any additional expla
 func (r *ContentReviewer) buildRulesDescription(rules []CustomKeywordRule) string {
 	var builder strings.Builder
 	for _, rule := range rules {
-		keywords := strings.Split(rule.Keywords, ".")
-		for j, keyword := range keywords {
+		keywords := strings.FieldsFunc(rule.Keywords, func(r rune) bool {
+			switch r {
+			case '.', ',', '，', '、', ';', '；', '\n', '\r':
+				return true
+			default:
+				return false
+			}
+		})
+		cleanedKeywords := make([]string, 0, len(keywords))
+		for _, keyword := range keywords {
 			trimmed := strings.TrimSpace(keyword)
-			keywords[j] = trimmed
+			if trimmed != "" {
+				cleanedKeywords = append(cleanedKeywords, trimmed)
+			}
 		}
-
-		ruleText := fmt.Sprintf(`
-### %s
-- Description: %s
-- Keywords: %s
-`, rule.Type, rule.Description, strings.Join(keywords, ", "))
+		ruleType := strings.TrimSpace(rule.Type)
+		if ruleType == "" {
+			ruleType = "custom"
+		}
+		description := strings.TrimSpace(rule.Description)
+		if description == "" {
+			description = ruleType + "关键词检测规则"
+		}
+		ruleText := fmt.Sprintf("类型: %s\n说明: %s\n关键词: %s\n", ruleType, description, strings.Join(cleanedKeywords, ", "))
 
 		builder.WriteString(ruleText)
+		builder.WriteString("\n")
 	}
 
-	result := builder.String()
-
-	return result
+	return strings.TrimSpace(builder.String())
 }
 
 func (r *ContentReviewer) buildCustomPrompt(
