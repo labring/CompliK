@@ -20,6 +20,11 @@ resources:
 
 containerPort: 8428
 
+browserRuntime:
+  home: /tmp
+  cacheHome: /tmp/.cache
+  bin: /usr/bin/chromium
+
 database:
   create: true
 

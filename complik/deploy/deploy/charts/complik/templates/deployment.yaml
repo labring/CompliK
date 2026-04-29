@@ -35,6 +35,12 @@ spec:
             - containerPort: {{ .Values.containerPort }}
               protocol: TCP
           env:
+            - name: HOME
+              value: {{ .Values.browserRuntime.home | quote }}
+            - name: XDG_CACHE_HOME
+              value: {{ .Values.browserRuntime.cacheHome | quote }}
+            - name: ROD_BROWSER_BIN
+              value: {{ .Values.browserRuntime.bin | quote }}
             - name: USE_SERVICE_ACCOUNT
               value: {{ .Values.kubeconfig.useServiceAccount | quote }}
             {{- if not .Values.kubeconfig.useServiceAccount }}

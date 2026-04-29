@@ -21,6 +21,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -162,6 +165,13 @@ func (p *BrowserPool) createInstance() (*BrowserInstance, error) {
 		Set("disable-features", "VizDisplayCompositor").
 		Headless(true)
 
+	if browserBin := configuredBrowserBin(p.log); browserBin != "" {
+		l = l.Bin(browserBin)
+		p.log.Debug("Using configured browser binary", logger.Fields{
+			"browser_bin": browserBin,
+		})
+	}
+
 	u, err := l.Launch()
 	if err != nil {
 		p.log.Error("Failed to launch browser", logger.Fields{
@@ -187,6 +197,58 @@ func (p *BrowserPool) createInstance() (*BrowserInstance, error) {
 	})
 
 	return instance, nil
+}
+
+func configuredBrowserBin(log logger.Logger) string {
+	for _, name := range []string{"ROD_BROWSER_BIN", "CHROME_BIN"} {
+		value := strings.TrimSpace(os.Getenv(name))
+		if value == "" {
+			continue
+		}
+		if browserBin, ok := usableBrowserBin(value); ok {
+			return browserBin
+		}
+		if log != nil {
+			log.Warn("Configured browser binary is not usable", logger.Fields{
+				"env":         name,
+				"browser_bin": value,
+			})
+		}
+	}
+
+	for _, path := range []string{
+		"/usr/bin/chromium",
+		"/usr/bin/chromium-browser",
+		"/usr/bin/google-chrome",
+		"/usr/bin/google-chrome-stable",
+	} {
+		if browserBin, ok := usableBrowserBin(path); ok {
+			return browserBin
+		}
+	}
+
+	return ""
+}
+
+func usableBrowserBin(candidate string) (string, bool) {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return "", false
+	}
+
+	if !strings.Contains(candidate, string(os.PathSeparator)) {
+		path, err := exec.LookPath(candidate)
+		if err != nil {
+			return "", false
+		}
+		return path, true
+	}
+
+	info, err := os.Stat(candidate)
+	if err != nil || info.IsDir() || info.Mode().Perm()&0111 == 0 {
+		return "", false
+	}
+	return candidate, true
 }
 
 func (p *BrowserPool) cleanupExpired() {

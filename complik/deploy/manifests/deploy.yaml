@@ -157,6 +157,13 @@ spec:
           image: bearslyricattack/sealos-complik-service:latest
           imagePullPolicy: Always
           name: service-complik
+          env:
+            - name: HOME
+              value: /tmp
+            - name: XDG_CACHE_HOME
+              value: /tmp/.cache
+            - name: ROD_BROWSER_BIN
+              value: /usr/bin/chromium
           ports:
             - containerPort: 8428
               protocol: TCP

@@ -24,6 +24,7 @@ import (
 	"github.com/bearslyricattack/CompliK/complik/pkg/eventbus"
 	"github.com/bearslyricattack/CompliK/complik/pkg/k8s"
 	"github.com/bearslyricattack/CompliK/complik/pkg/logger"
+	"github.com/bearslyricattack/CompliK/complik/pkg/models"
 	"github.com/bearslyricattack/CompliK/complik/pkg/plugin"
 	"github.com/bearslyricattack/CompliK/complik/pkg/utils/config"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -492,11 +493,51 @@ func (p *EndPointInformerPlugin) handleEndpointSliceEvent(endpointInfo *Endpoint
 		"matchedIngresses": len(endpointInfo.MatchedIngresses),
 	})
 
-	p.eventBus.Publish(constants.DiscoveryTopic, eventbus.Event{
-		Payload: endpointInfo,
-	})
+	for _, info := range p.buildDiscoveryInfo(endpointInfo) {
+		p.eventBus.Publish(constants.DiscoveryTopic, eventbus.Event{
+			Payload: info,
+		})
+	}
 
 	p.log.Debug("EndpointSlice event published successfully")
+}
+
+func (p *EndPointInformerPlugin) buildDiscoveryInfo(
+	endpointInfo *EndpointSliceInfo,
+) []models.DiscoveryInfo {
+	if endpointInfo == nil {
+		return nil
+	}
+
+	discoveryInfos := make([]models.DiscoveryInfo, 0, len(endpointInfo.MatchedIngresses))
+	for _, ingressInfo := range endpointInfo.MatchedIngresses {
+		discoveryInfos = append(discoveryInfos, models.DiscoveryInfo{
+			DiscoveryName: p.Name(),
+			Name:          ingressInfo.Name,
+			Namespace:     ingressInfo.Namespace,
+			Host:          normalizedIngressHost(ingressInfo.Host),
+			Path:          []string{normalizedIngressPath(ingressInfo.Path)},
+			ServiceName:   endpointInfo.ServiceName,
+			HasActivePods: endpointInfo.ReadyCount > 0,
+			PodCount:      endpointInfo.ReadyCount,
+		})
+	}
+
+	return discoveryInfos
+}
+
+func normalizedIngressHost(host string) string {
+	if host == "" {
+		return "*"
+	}
+	return host
+}
+
+func normalizedIngressPath(path string) string {
+	if path == "" {
+		return "/"
+	}
+	return path
 }
 
 func (p *EndPointInformerPlugin) checkServiceHasIngress(
@@ -543,13 +584,6 @@ func (p *EndPointInformerPlugin) checkServiceHasIngress(
 						Namespace: ingress.Namespace,
 						Host:      rule.Host,
 						Path:      path.Path,
-					}
-					if ingressInfo.Path == "" {
-						ingressInfo.Path = "/"
-					}
-
-					if ingressInfo.Host == "" {
-						ingressInfo.Host = "*"
 					}
 
 					p.log.Debug("Found matching ingress path", logger.Fields{
