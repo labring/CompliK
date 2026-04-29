@@ -58,10 +58,12 @@ func (p *LarkPlugin) Type() string {
 }
 
 type LarkConfig struct {
-	Region             string `json:"region"`
-	Webhook            string `json:"webhook"`
-	AdminBaseURL       string `json:"adminBaseURL"`
-	AdminTimeoutSecond int    `json:"adminTimeoutSecond"`
+	Region                 string `json:"region"`
+	Webhook                string `json:"webhook"`
+	AdminBaseURL           string `json:"adminBaseURL"`
+	AdminTimeoutSecond     int    `json:"adminTimeoutSecond"`
+	AdminBasicAuthUsername string `json:"adminBasicAuthUsername"`
+	AdminBasicAuthPassword string `json:"adminBasicAuthPassword"`
 }
 
 func (p *LarkPlugin) getDefaultConfig() LarkConfig {
@@ -103,6 +105,7 @@ func (p *LarkPlugin) loadConfig(ctx context.Context, setting string) error {
 	if configFromJSON.AdminTimeoutSecond > 0 {
 		p.larkConfig.AdminTimeoutSecond = configFromJSON.AdminTimeoutSecond
 	}
+	p.applyAdminBasicAuthConfig(configFromJSON)
 	if err := p.applyNotificationsRuntimeConfig(ctx); err != nil {
 		return fmt.Errorf("failed to apply notifications runtime config from admin: %w", err)
 	}
@@ -113,11 +116,28 @@ func (p *LarkPlugin) loadConfig(ctx context.Context, setting string) error {
 	return nil
 }
 
+func (p *LarkPlugin) applyAdminBasicAuthConfig(configFromJSON LarkConfig) {
+	auth := config.ResolveAdminBasicAuth(
+		configFromJSON.AdminBasicAuthUsername,
+		configFromJSON.AdminBasicAuthPassword,
+	)
+	p.larkConfig.AdminBasicAuthUsername = auth.Username
+	p.larkConfig.AdminBasicAuthPassword = auth.Password
+}
+
+func (p *LarkPlugin) adminBasicAuth() config.AdminBasicAuth {
+	return config.AdminBasicAuth{
+		Username: p.larkConfig.AdminBasicAuthUsername,
+		Password: p.larkConfig.AdminBasicAuthPassword,
+	}
+}
+
 func (p *LarkPlugin) applyNotificationsRuntimeConfig(ctx context.Context) error {
-	runtimeCfg, err := config.LoadNotificationsRuntimeConfig(
+	runtimeCfg, err := config.LoadNotificationsRuntimeConfigWithAuth(
 		ctx,
 		p.larkConfig.AdminBaseURL,
 		p.larkConfig.AdminTimeoutSecond,
+		p.adminBasicAuth(),
 	)
 	if err != nil {
 		return err

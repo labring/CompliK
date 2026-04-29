@@ -55,9 +55,11 @@ type AdminReporterPlugin struct {
 }
 
 type ReporterConfig struct {
-	Region             string `json:"region"`
-	AdminBaseURL       string `json:"adminBaseURL"`
-	AdminTimeoutSecond int    `json:"adminTimeoutSecond"`
+	Region                 string `json:"region"`
+	AdminBaseURL           string `json:"adminBaseURL"`
+	AdminTimeoutSecond     int    `json:"adminTimeoutSecond"`
+	AdminBasicAuthUsername string `json:"adminBasicAuthUsername"`
+	AdminBasicAuthPassword string `json:"adminBasicAuthPassword"`
 }
 
 type complikViolationRequest struct {
@@ -123,6 +125,7 @@ func (p *AdminReporterPlugin) loadConfig(setting string) error {
 	if configFromJSON.AdminTimeoutSecond > 0 {
 		p.reporterConfig.AdminTimeoutSecond = configFromJSON.AdminTimeoutSecond
 	}
+	p.applyAdminBasicAuthConfig(configFromJSON)
 
 	p.log.Info("Admin reporter configuration loaded", logger.Fields{
 		"region":         p.reporterConfig.Region,
@@ -131,6 +134,22 @@ func (p *AdminReporterPlugin) loadConfig(setting string) error {
 	})
 
 	return nil
+}
+
+func (p *AdminReporterPlugin) applyAdminBasicAuthConfig(configFromJSON ReporterConfig) {
+	auth := config.ResolveAdminBasicAuth(
+		configFromJSON.AdminBasicAuthUsername,
+		configFromJSON.AdminBasicAuthPassword,
+	)
+	p.reporterConfig.AdminBasicAuthUsername = auth.Username
+	p.reporterConfig.AdminBasicAuthPassword = auth.Password
+}
+
+func (p *AdminReporterPlugin) adminBasicAuth() config.AdminBasicAuth {
+	return config.AdminBasicAuth{
+		Username: p.reporterConfig.AdminBasicAuthUsername,
+		Password: p.reporterConfig.AdminBasicAuthPassword,
+	}
 }
 
 func (p *AdminReporterPlugin) Start(
@@ -230,7 +249,7 @@ func (p *AdminReporterPlugin) reportViolation(
 	requestCtx, cancel := context.WithTimeout(parentCtx, p.adminTimeout())
 	defer cancel()
 
-	return postJSON(requestCtx, p.adminEndpoint(), requestBody)
+	return postJSON(requestCtx, p.adminEndpoint(), requestBody, p.adminBasicAuth())
 }
 
 func (p *AdminReporterPlugin) adminEndpoint() string {
@@ -279,7 +298,7 @@ func buildComplikRawPayload(result *models.DetectorInfo) map[string]any {
 	}
 }
 
-func postJSON(ctx context.Context, endpoint string, payload any) error {
+func postJSON(ctx context.Context, endpoint string, payload any, auth config.AdminBasicAuth) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
@@ -291,6 +310,7 @@ func postJSON(ctx context.Context, endpoint string, payload any) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	auth.Apply(req)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

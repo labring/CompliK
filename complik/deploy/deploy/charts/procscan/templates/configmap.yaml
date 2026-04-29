@@ -22,3 +22,6 @@ data:
       admin:
         base_url: {{ .Values.config.notifications.admin.base_url | quote }}
         timeout: {{ .Values.config.notifications.admin.timeout | quote }}
+        basic_auth:
+          username: {{ .Values.config.notifications.admin.basic_auth.username | quote }}
+          password: {{ .Values.config.notifications.admin.basic_auth.password | quote }}

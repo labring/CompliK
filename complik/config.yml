@@ -58,7 +58,9 @@ plugins:
       {
         "maxWorkers": 20,
         "adminBaseURL": "http://sealos-complik-admin:8080",
-        "adminTimeoutSecond": 10
+        "adminTimeoutSecond": 10,
+        "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+        "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
       }
 
   - name: "Custom"
@@ -68,7 +70,9 @@ plugins:
       {
         "maxWorkers": 20,
         "adminBaseURL": "http://sealos-complik-admin:8080",
-        "adminTimeoutSecond": 10
+        "adminTimeoutSecond": 10,
+        "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+        "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
       }
 
   - name: "AdminReporter"
@@ -78,7 +82,9 @@ plugins:
       {
         "region": "${REGION}",
         "adminBaseURL": "http://sealos-complik-admin:8080",
-        "adminTimeoutSecond": 10
+        "adminTimeoutSecond": 10,
+        "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+        "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
       }
 
   - name: "Lark"
@@ -88,7 +94,9 @@ plugins:
       {
         "region": "${REGION}",
         "adminBaseURL": "http://sealos-complik-admin:8080",
-        "adminTimeoutSecond": 10
+        "adminTimeoutSecond": 10,
+        "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+        "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
       }
 
 logging:

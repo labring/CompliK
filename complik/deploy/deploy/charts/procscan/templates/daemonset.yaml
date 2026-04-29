@@ -47,6 +47,18 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            {{- if .Values.config.notifications.admin.basic_auth.env.enabled }}
+            - name: ADMIN_BASIC_AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.notifications.admin.basic_auth.env.secretName | quote }}
+                  key: {{ .Values.config.notifications.admin.basic_auth.env.usernameKey | quote }}
+            - name: ADMIN_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.notifications.admin.basic_auth.env.secretName | quote }}
+                  key: {{ .Values.config.notifications.admin.basic_auth.env.passwordKey | quote }}
+            {{- end }}
           securityContext:
             {{- toYaml .Values.daemonset.securityContext | nindent 12 }}
           volumeMounts:

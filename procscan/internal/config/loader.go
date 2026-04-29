@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bearslyricattack/CompliK/procscan/internal/adminauth"
 	"github.com/bearslyricattack/CompliK/procscan/pkg/models"
 	"gopkg.in/yaml.v3"
 )
@@ -99,8 +100,12 @@ func (l *Loader) loadAdminConfig(config *models.Config) error {
 	if adminBaseURL == "" {
 		return fmt.Errorf("notifications.admin.base_url is required")
 	}
+	auth := adminauth.FromValues(
+		config.Notifications.Admin.BasicAuth.Username,
+		config.Notifications.Admin.BasicAuth.Password,
+	)
 
-	notifications, err := l.loadRemoteNotificationsConfig(adminBaseURL, config.Notifications.Admin.Timeout)
+	notifications, err := l.loadRemoteNotificationsConfig(adminBaseURL, config.Notifications.Admin.Timeout, auth)
 	if err != nil {
 		return fmt.Errorf("load notifications config from admin: %w", err)
 	}
@@ -113,7 +118,7 @@ func (l *Loader) loadAdminConfig(config *models.Config) error {
 	config.Notifications.Region = strings.TrimSpace(*notifications.Region)
 	config.Notifications.Lark.Webhook = strings.TrimSpace(*notifications.Webhook)
 
-	rules, err := l.loadRemoteRulesConfig(adminBaseURL, config.Notifications.Admin.Timeout)
+	rules, err := l.loadRemoteRulesConfig(adminBaseURL, config.Notifications.Admin.Timeout, auth)
 	if err != nil {
 		return fmt.Errorf("load detection rules config from admin: %w", err)
 	}
@@ -122,25 +127,45 @@ func (l *Loader) loadAdminConfig(config *models.Config) error {
 	return nil
 }
 
-func (l *Loader) loadRemoteNotificationsConfig(adminBaseURL string, timeout time.Duration) (*remoteNotificationsConfig, error) {
+func (l *Loader) loadRemoteNotificationsConfig(
+	adminBaseURL string,
+	timeout time.Duration,
+	auth adminauth.BasicAuth,
+) (*remoteNotificationsConfig, error) {
 	var config remoteNotificationsConfig
-	if err := l.loadRemoteConfigValue(adminBaseURL, timeout, procscanNotificationsConfigType, &config); err != nil {
+	if err := l.loadRemoteConfigValue(adminBaseURL, timeout, procscanNotificationsConfigType, &config, auth); err != nil {
 		return nil, err
 	}
 	return &config, nil
 }
 
-func (l *Loader) loadRemoteRulesConfig(adminBaseURL string, timeout time.Duration) (*models.DetectionRules, error) {
+func (l *Loader) loadRemoteRulesConfig(
+	adminBaseURL string,
+	timeout time.Duration,
+	auth adminauth.BasicAuth,
+) (*models.DetectionRules, error) {
 	var rules models.DetectionRules
-	if err := l.loadRemoteConfigValue(adminBaseURL, timeout, procscanRulesConfigType, &rules); err != nil {
+	if err := l.loadRemoteConfigValue(adminBaseURL, timeout, procscanRulesConfigType, &rules, auth); err != nil {
 		return nil, err
 	}
 	return &rules, nil
 }
 
-func (l *Loader) loadRemoteConfigValue(adminBaseURL string, timeout time.Duration, configType string, target any) error {
+func (l *Loader) loadRemoteConfigValue(
+	adminBaseURL string,
+	timeout time.Duration,
+	configType string,
+	target any,
+	auth adminauth.BasicAuth,
+) error {
 	endpoint := strings.TrimRight(adminBaseURL, "/") + "/api/configs/type/" + url.PathEscape(configType)
-	resp, err := adminClient(timeout).Get(endpoint)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("create %s request: %w", configType, err)
+	}
+	auth.Apply(req)
+
+	resp, err := adminClient(timeout).Do(req)
 	if err != nil {
 		return fmt.Errorf("request %s: %w", configType, err)
 	}

@@ -20,6 +20,9 @@ data:
       admin:
         base_url: "http://sealos-complik-admin:8080"
         timeout: "10s"
+        basic_auth:
+          username: "${ADMIN_BASIC_AUTH_USERNAME}"
+          password: "${ADMIN_BASIC_AUTH_PASSWORD}"
 
     metrics:
       enabled: false

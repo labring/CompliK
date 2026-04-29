@@ -35,6 +35,16 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: ADMIN_BASIC_AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: sealos-complik-admin-auth
+                  key: username
+            - name: ADMIN_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sealos-complik-admin-auth
+                  key: password
           securityContext:
             privileged: true
             runAsUser: 0
