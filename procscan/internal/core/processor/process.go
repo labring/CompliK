@@ -234,10 +234,10 @@ func (p *Processor) isBlacklisted(processName, cmdline string) (bool, string) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if matched, rule := matchAny(processName, p.rules.blacklistProcesses); matched {
-		return true, fmt.Sprintf("Process name '%s' matched blacklist rule '%s'", processName, rule)
+		return true, fmt.Sprintf("进程名 '%s' 命中黑名单规则 '%s'", processName, rule)
 	}
 	if matched, rule := matchAny(cmdline, p.rules.blacklistKeywords); matched {
-		return true, fmt.Sprintf("Command line matched keyword blacklist rule '%s'", rule)
+		return true, fmt.Sprintf("命令行命中关键词黑名单规则 '%s'", rule)
 	}
 	return false, ""
 }

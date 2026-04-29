@@ -225,10 +225,10 @@ func buildProcessAnalysis(info *models.ProcessInfo) []string {
 	analyses := make([]string, 0, 3)
 	message := strings.ToLower(strings.TrimSpace(info.Message))
 
-	if strings.Contains(message, "process name") {
+	if strings.Contains(message, "process name") || strings.Contains(message, "进程名") {
 		analyses = append(analyses, "当前通过进程名命中黑名单规则，可能是已知恶意程序，也可能是调试、巡检或运维命令导致的误报，建议结合镜像来源和启动者继续核查。")
 	}
-	if strings.Contains(message, "command line") || strings.Contains(message, "keyword") {
+	if strings.Contains(message, "command line") || strings.Contains(message, "keyword") || strings.Contains(message, "命令行") || strings.Contains(message, "关键词") {
 		analyses = append(analyses, "当前通过命令行关键字命中规则，可能涉及挖矿、反弹 Shell、扫描探测等行为，也可能是测试命令或安全演练触发。")
 	}
 
@@ -247,6 +247,20 @@ func translateReason(message string) string {
 	message = strings.TrimSpace(message)
 	if message == "" {
 		return "未返回命中原因"
+	}
+
+	if strings.HasPrefix(message, "进程名 '") && strings.Contains(message, "' 命中黑名单规则 '") {
+		parts := strings.SplitN(strings.TrimPrefix(message, "进程名 '"), "' 命中黑名单规则 '", 2)
+		if len(parts) == 2 {
+			processName := parts[0]
+			rule := strings.TrimSuffix(parts[1], "'")
+			return fmt.Sprintf("进程名 %s 命中黑名单规则 %s", quoteValue(processName), quoteValue(rule))
+		}
+	}
+
+	if strings.HasPrefix(message, "命令行命中关键词黑名单规则 '") {
+		rule := strings.TrimSuffix(strings.TrimPrefix(message, "命令行命中关键词黑名单规则 '"), "'")
+		return fmt.Sprintf("进程命令行命中关键字黑名单规则 %s", quoteValue(rule))
 	}
 
 	if strings.HasPrefix(message, "Process name '") && strings.Contains(message, "' matched blacklist rule '") {

@@ -224,7 +224,7 @@ func (p *AdminReporterPlugin) reportViolation(
 		IsTest:        isComplikTestEvent(result),
 		Status:        "open",
 		DetectedAt:    time.Now().UTC(),
-		RawPayload:    result,
+		RawPayload:    buildComplikRawPayload(result),
 	}
 
 	requestCtx, cancel := context.WithTimeout(parentCtx, p.adminTimeout())
@@ -256,6 +256,27 @@ func isComplikTestEvent(result *models.DetectorInfo) bool {
 	}
 
 	return slices.Contains(result.Keywords, "程序启动")
+}
+
+func buildComplikRawPayload(result *models.DetectorInfo) map[string]any {
+	return map[string]any{
+		"检测结果": map[string]any{
+			"发现插件":  result.DiscoveryName,
+			"采集插件":  result.CollectorName,
+			"检测插件":  result.DetectorName,
+			"资源名称":  result.Name,
+			"命名空间":  result.Namespace,
+			"地域":    result.Region,
+			"主机":    result.Host,
+			"路径":    result.Path,
+			"完整URL": result.URL,
+			"描述":    result.Description,
+			"匹配关键词": result.Keywords,
+			"是否违规":  result.IsIllegal,
+			"模型解释":  result.Explanation,
+		},
+		"上报来源": "complik",
+	}
 }
 
 func postJSON(ctx context.Context, endpoint string, payload any) error {

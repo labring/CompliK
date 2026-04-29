@@ -259,17 +259,17 @@ func (p *SafetyPlugin) Start(
 	time.Sleep(30 * time.Second)
 	eventBus.Publish(constants.DetectorTopic, eventbus.Event{
 		Payload: &models.DetectorInfo{
-			DiscoveryName: "Program started, Feishu notification test",
-			CollectorName: "Program started, Feishu notification test",
+			DiscoveryName: "程序启动，飞书通知测试",
+			CollectorName: "程序启动，飞书通知测试",
 			DetectorName:  p.Name(),
-			Name:          "Program started, Feishu notification test",
-			Namespace:     "Program started, Feishu notification test",
+			Name:          "程序启动，飞书通知测试",
+			Namespace:     "程序启动，飞书通知测试",
 			Host:          "",
 			Path:          nil,
-			URL:           "Program started, Feishu notification test",
+			URL:           "程序启动，飞书通知测试",
 			IsIllegal:     true,
-			Description:   "Feishu message test - Program successfully started",
-			Keywords:      []string{"program_start", "feishu_test", "system_initialization"},
+			Description:   "飞书消息测试 - 程序已成功启动",
+			Keywords:      []string{"程序启动", "飞书测试", "系统初始化"},
 		},
 	})
 

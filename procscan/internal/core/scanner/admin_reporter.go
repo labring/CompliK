@@ -68,24 +68,23 @@ func (s *Scanner) reportProcscanViolation(endpoint string, processInfo *models.P
 	if err != nil {
 		detectedAt = time.Now().UTC()
 	}
+	nodeName := currentNodeName()
+	localizedMessage := localizeProcscanMessage(processInfo.Message, processInfo.ProcessName, matchType, matchRule)
 
 	payload := procscanViolationRequest{
 		Namespace:      processInfo.Namespace,
 		PodName:        processInfo.PodName,
 		ContainerID:    processInfo.ContainerID,
-		NodeName:       currentNodeName(),
+		NodeName:       nodeName,
 		PID:            processInfo.PID,
 		ProcessName:    processInfo.ProcessName,
 		ProcessCommand: processInfo.Command,
 		MatchType:      matchType,
 		MatchRule:      matchRule,
-		Message:        processInfo.Message,
+		Message:        localizedMessage,
 		IsIllegal:      processInfo.IsIllegal,
 		DetectedAt:     detectedAt,
-		RawPayload: map[string]any{
-			"process_info":  processInfo,
-			"reported_from": "procscan",
-		},
+		RawPayload:     buildProcscanRawPayload(processInfo, nodeName, matchType, matchRule, localizedMessage, detectedAt),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), s.adminTimeout())
@@ -152,6 +151,15 @@ func postJSON(ctx context.Context, endpoint string, payload any) error {
 
 func parseMatchDetails(message string) (string, string) {
 	message = strings.TrimSpace(message)
+	if strings.HasPrefix(message, "进程名 '") && strings.Contains(message, "' 命中黑名单规则 '") {
+		parts := strings.SplitN(strings.TrimPrefix(message, "进程名 '"), "' 命中黑名单规则 '", 2)
+		if len(parts) == 2 {
+			return "process_name", strings.TrimSuffix(parts[1], "'")
+		}
+	}
+	if strings.HasPrefix(message, "命令行命中关键词黑名单规则 '") {
+		return "command_keyword", strings.TrimSuffix(strings.TrimPrefix(message, "命令行命中关键词黑名单规则 '"), "'")
+	}
 	if strings.HasPrefix(message, "Process name '") && strings.Contains(message, "' matched blacklist rule '") {
 		parts := strings.SplitN(strings.TrimPrefix(message, "Process name '"), "' matched blacklist rule '", 2)
 		if len(parts) == 2 {
@@ -162,6 +170,59 @@ func parseMatchDetails(message string) (string, string) {
 		return "command_keyword", strings.TrimSuffix(strings.TrimPrefix(message, "Command line matched keyword blacklist rule '"), "'")
 	}
 	return "", ""
+}
+
+func buildProcscanRawPayload(processInfo *models.ProcessInfo, nodeName string, matchType string, matchRule string, message string, detectedAt time.Time) map[string]any {
+	return map[string]any{
+		"进程信息": map[string]any{
+			"进程ID":  processInfo.PID,
+			"进程名称":  localizeUnknown(processInfo.ProcessName),
+			"命令行":   localizeUnknown(processInfo.Command),
+			"命中原因":  message,
+			"Pod名称": localizeUnknown(processInfo.PodName),
+			"命名空间":  localizeUnknown(processInfo.Namespace),
+			"容器ID":  localizeUnknown(processInfo.ContainerID),
+			"节点名称":  localizeUnknown(nodeName),
+			"是否违规":  processInfo.IsIllegal,
+			"检测时间":  detectedAt.Format(time.RFC3339),
+			"匹配类型":  localizeMatchType(matchType),
+			"匹配规则":  localizeUnknown(matchRule),
+		},
+		"上报来源": "procscan",
+	}
+}
+
+func localizeProcscanMessage(message string, processName string, matchType string, matchRule string) string {
+	message = strings.TrimSpace(message)
+	switch matchType {
+	case "process_name":
+		name := localizeUnknown(processName)
+		rule := localizeUnknown(matchRule)
+		return fmt.Sprintf("进程名 '%s' 命中黑名单规则 '%s'", name, rule)
+	case "command_keyword":
+		return fmt.Sprintf("命令行命中关键词黑名单规则 '%s'", localizeUnknown(matchRule))
+	default:
+		return message
+	}
+}
+
+func localizeMatchType(matchType string) string {
+	switch matchType {
+	case "process_name":
+		return "进程名"
+	case "command_keyword":
+		return "命令行关键词"
+	default:
+		return "未知"
+	}
+}
+
+func localizeUnknown(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.EqualFold(value, "unknown") {
+		return "未知"
+	}
+	return value
 }
 
 func currentNodeName() string {
