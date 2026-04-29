@@ -1,59 +1,43 @@
-FROM node:18-slim
+# syntax=docker/dockerfile:1.7
 
-# 安装 Chromium 和依赖
-RUN apt-get update && apt-get install -y \
-    chromium \
+FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS builder
+
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY . .
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    target_os="${TARGETOS:-linux}" && \
+    target_arch="${TARGETARCH:-$(go env GOARCH)}" && \
+    CGO_ENABLED=0 GOOS="${target_os}" GOARCH="${target_arch}" \
+    go build -trimpath -ldflags="-s -w" -p=1 -o /out/manager ./cmd/complik
+
+FROM debian:bookworm-slim
+
+ENV CHROME_BIN=/usr/bin/chromium \
+    ROD_BROWSER_BIN=/usr/bin/chromium
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    chromium \
     fonts-liberation \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libatk1.0-0 \
-    libc6 \
-    libcairo2 \
-    libcups2 \
-    libdbus-1-3 \
-    libexpat1 \
-    libfontconfig1 \
-    libgbm1 \
-    libgcc1 \
-    libglib2.0-0 \
-    libgtk-3-0 \
-    libnspr4 \
-    libnss3 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libstdc++6 \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxss1 \
-    libxtst6 \
-    lsb-release \
-    wget \
-    xdg-utils \
-    --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-ARG TARGETARCH
-COPY bin/service-complik-$TARGETARCH /manager
+COPY --from=builder /out/manager /manager
 
-# 创建非 root 用户（ID 65532 对应 nonroot 用户）
-RUN groupadd -g 65532 nonroot && \
-    useradd -u 65532 -g 65532 -m -s /bin/bash nonroot
-
-# 设置权限
-RUN chmod +x /manager
+RUN echo "nonroot:x:65532:" >> /etc/group && \
+    echo "nonroot:x:65532:65532:nonroot:/nonexistent:/usr/sbin/nologin" >> /etc/passwd && \
+    chmod +x /manager
 
 EXPOSE 8428
 USER 65532:65532
 
-# 修正 ENTRYPOINT，移除固定的配置文件路径
-ENTRYPOINT [ "/manager" ]
+ENTRYPOINT ["/manager"]

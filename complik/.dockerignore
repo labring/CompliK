@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.vscode
+
+bin
+dist
+tmp
+
+deploy
+docs
+*.log
