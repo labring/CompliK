@@ -1,0 +1,9 @@
+.git
+.gitignore
+.DS_Store
+
+logs/
+test/
+
+README.md
+start.sh

@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sealos-complik-admin-config
+  namespace: sealos
+  labels:
+    app: sealos-complik-admin
+data:
+  config.yaml: |
+    port: 8080
+
+    database:
+      host: complik-db-mysql
+      port: 3306
+      name: sealos-complik-admin
+
+    auth:
+      enabled: true
+      realm: CompliK Admin
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: sealos-complik-admin
+  namespace: sealos
+  labels:
+    app: sealos-complik-admin
+spec:
+  selector:
+    matchLabels:
+      app: sealos-complik-admin
+  template:
+    metadata:
+      labels:
+        app: sealos-complik-admin
+    spec:
+      containers:
+        - name: backend
+          image: leonincs/sealos-complik-admin:xcq
+          imagePullPolicy: Always
+          env:
+            - name: CONFIG_FILE
+              value: /config/config.yaml
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: sealos-complik-admin-db
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sealos-complik-admin-db
+                  key: password
+            - name: ADMIN_BASIC_AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: sealos-complik-admin-auth
+                  key: username
+            - name: ADMIN_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sealos-complik-admin-auth
+                  key: password
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: config
+              mountPath: /config
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: sealos-complik-admin-config
+            items:
+              - key: config.yaml
+                path: config.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sealos-complik-admin
+  namespace: sealos
+  labels:
+    app: sealos-complik-admin
+spec:
+  selector:
+    app: sealos-complik-admin
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
