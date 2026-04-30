@@ -63,13 +63,15 @@ func (p *CustomPlugin) Type() string {
 }
 
 type CustomConfig struct {
-	MaxWorkers         int    `json:"maxWorkers"`
-	APIKey             string `json:"apiKey"`
-	APIBase            string `json:"apiBase"`
-	APIPath            string `json:"apiPath"`
-	Model              string `json:"model"`
-	AdminBaseURL       string `json:"adminBaseURL"`
-	AdminTimeoutSecond int    `json:"adminTimeoutSecond"`
+	MaxWorkers             int    `json:"maxWorkers"`
+	APIKey                 string `json:"apiKey"`
+	APIBase                string `json:"apiBase"`
+	APIPath                string `json:"apiPath"`
+	Model                  string `json:"model"`
+	AdminBaseURL           string `json:"adminBaseURL"`
+	AdminTimeoutSecond     int    `json:"adminTimeoutSecond"`
+	AdminBasicAuthUsername string `json:"adminBasicAuthUsername"`
+	AdminBasicAuthPassword string `json:"adminBasicAuthPassword"`
 }
 
 func (p *CustomPlugin) getDefaultConfig() CustomConfig {
@@ -107,6 +109,7 @@ func (p *CustomPlugin) loadConfig(ctx context.Context, setting string) error {
 	if configFromJSON.AdminTimeoutSecond > 0 {
 		p.customConfig.AdminTimeoutSecond = configFromJSON.AdminTimeoutSecond
 	}
+	p.applyAdminBasicAuthConfig(configFromJSON)
 	if err := p.applyModelRuntimeConfig(ctx); err != nil {
 		return fmt.Errorf("failed to apply model runtime config from admin: %w", err)
 	}
@@ -128,6 +131,22 @@ func (p *CustomPlugin) loadConfig(ctx context.Context, setting string) error {
 		"keyword_count":  len(p.keywords),
 	})
 	return nil
+}
+
+func (p *CustomPlugin) applyAdminBasicAuthConfig(configFromJSON CustomConfig) {
+	auth := config.ResolveAdminBasicAuth(
+		configFromJSON.AdminBasicAuthUsername,
+		configFromJSON.AdminBasicAuthPassword,
+	)
+	p.customConfig.AdminBasicAuthUsername = auth.Username
+	p.customConfig.AdminBasicAuthPassword = auth.Password
+}
+
+func (p *CustomPlugin) adminBasicAuth() config.AdminBasicAuth {
+	return config.AdminBasicAuth{
+		Username: p.customConfig.AdminBasicAuthUsername,
+		Password: p.customConfig.AdminBasicAuthPassword,
+	}
 }
 
 func (p *CustomPlugin) Start(
@@ -223,11 +242,12 @@ func (p *CustomPlugin) Stop(ctx context.Context) error {
 }
 
 func (p *CustomPlugin) readFromAdminConfigs(ctx context.Context) error {
-	cfgs, err := config.ListAdminProjectConfigsByType(
+	cfgs, err := config.ListAdminProjectConfigsByTypeWithAuth(
 		ctx,
 		p.customConfig.AdminBaseURL,
 		p.customConfig.AdminTimeoutSecond,
 		"custom",
+		p.adminBasicAuth(),
 	)
 	if err != nil {
 		return err
@@ -435,10 +455,11 @@ func splitRuleKeywords(raw string) []string {
 }
 
 func (p *CustomPlugin) applyModelRuntimeConfig(ctx context.Context) error {
-	modelCfg, err := config.LoadModelRuntimeConfig(
+	modelCfg, err := config.LoadModelRuntimeConfigWithAuth(
 		ctx,
 		p.customConfig.AdminBaseURL,
 		p.customConfig.AdminTimeoutSecond,
+		p.adminBasicAuth(),
 	)
 	if err != nil {
 		return err

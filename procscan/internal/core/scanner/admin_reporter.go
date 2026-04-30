@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bearslyricattack/CompliK/procscan/internal/adminauth"
 	legacy "github.com/bearslyricattack/CompliK/procscan/pkg/logger/legacy"
 	"github.com/bearslyricattack/CompliK/procscan/pkg/models"
 )
@@ -90,7 +91,7 @@ func (s *Scanner) reportProcscanViolation(endpoint string, processInfo *models.P
 	ctx, cancel := context.WithTimeout(context.Background(), s.adminTimeout())
 	defer cancel()
 
-	return postJSON(ctx, endpoint, payload)
+	return postJSON(ctx, endpoint, payload, s.adminBasicAuth())
 }
 
 func (s *Scanner) adminEndpoint() (string, bool) {
@@ -114,7 +115,17 @@ func (s *Scanner) adminTimeout() time.Duration {
 	return defaultAdminTimeout
 }
 
-func postJSON(ctx context.Context, endpoint string, payload any) error {
+func (s *Scanner) adminBasicAuth() adminauth.BasicAuth {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return adminauth.FromValues(
+		s.config.Notifications.Admin.BasicAuth.Username,
+		s.config.Notifications.Admin.BasicAuth.Password,
+	)
+}
+
+func postJSON(ctx context.Context, endpoint string, payload any, auth adminauth.BasicAuth) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
@@ -125,6 +136,7 @@ func postJSON(ctx context.Context, endpoint string, payload any) error {
 		return fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	auth.Apply(req)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

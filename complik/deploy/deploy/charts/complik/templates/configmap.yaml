@@ -61,7 +61,9 @@ data:
           {
             "maxWorkers": {{ .Values.plugins.safety.maxWorkers }},
             "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
-            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }},
+            "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+            "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
           }
       - name: "Custom"
         type: "Compliance"
@@ -70,7 +72,9 @@ data:
           {
             "maxWorkers": {{ .Values.plugins.custom.maxWorkers }},
             "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
-            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }},
+            "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+            "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
           }
       - name: "AdminReporter"
         type: "Handle"
@@ -79,7 +83,9 @@ data:
           {
             "region": {{ .Values.external.region | quote }},
             "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
-            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }},
+            "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+            "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
           }
       - name: "Lark"
         type: "Handle"
@@ -88,7 +94,9 @@ data:
           {
             "region": {{ .Values.external.region | quote }},
             "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
-            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }}
+            "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }},
+            "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+            "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
           }
     logging:
       level: {{ .Values.config.logging.level | quote }}

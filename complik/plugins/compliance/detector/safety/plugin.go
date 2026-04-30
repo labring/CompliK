@@ -65,13 +65,15 @@ func (p *SafetyPlugin) Type() string {
 }
 
 type SafetyConfig struct {
-	MaxWorkers         int    `json:"maxWorkers"`
-	APIKey             string `json:"apiKey"`
-	APIBase            string `json:"apiBase"`
-	APIPath            string `json:"apiPath"`
-	Model              string `json:"model"`
-	AdminBaseURL       string `json:"adminBaseURL"`
-	AdminTimeoutSecond int    `json:"adminTimeoutSecond"`
+	MaxWorkers             int    `json:"maxWorkers"`
+	APIKey                 string `json:"apiKey"`
+	APIBase                string `json:"apiBase"`
+	APIPath                string `json:"apiPath"`
+	Model                  string `json:"model"`
+	AdminBaseURL           string `json:"adminBaseURL"`
+	AdminTimeoutSecond     int    `json:"adminTimeoutSecond"`
+	AdminBasicAuthUsername string `json:"adminBasicAuthUsername"`
+	AdminBasicAuthPassword string `json:"adminBasicAuthPassword"`
 }
 
 func (p *SafetyPlugin) getDefaultConfig() SafetyConfig {
@@ -114,6 +116,7 @@ func (p *SafetyPlugin) loadConfig(ctx context.Context, setting string) error {
 	if safetyConfig.AdminTimeoutSecond > 0 {
 		p.safetyConfig.AdminTimeoutSecond = safetyConfig.AdminTimeoutSecond
 	}
+	p.applyAdminBasicAuthConfig(safetyConfig)
 	if err := p.applyModelRuntimeConfig(ctx); err != nil {
 		return fmt.Errorf("failed to apply model runtime config from admin: %w", err)
 	}
@@ -137,11 +140,28 @@ func (p *SafetyPlugin) loadConfig(ctx context.Context, setting string) error {
 	return nil
 }
 
+func (p *SafetyPlugin) applyAdminBasicAuthConfig(safetyConfig SafetyConfig) {
+	auth := config.ResolveAdminBasicAuth(
+		safetyConfig.AdminBasicAuthUsername,
+		safetyConfig.AdminBasicAuthPassword,
+	)
+	p.safetyConfig.AdminBasicAuthUsername = auth.Username
+	p.safetyConfig.AdminBasicAuthPassword = auth.Password
+}
+
+func (p *SafetyPlugin) adminBasicAuth() config.AdminBasicAuth {
+	return config.AdminBasicAuth{
+		Username: p.safetyConfig.AdminBasicAuthUsername,
+		Password: p.safetyConfig.AdminBasicAuthPassword,
+	}
+}
+
 func (p *SafetyPlugin) applyModelRuntimeConfig(ctx context.Context) error {
-	modelCfg, err := config.LoadModelRuntimeConfig(
+	modelCfg, err := config.LoadModelRuntimeConfigWithAuth(
 		ctx,
 		p.safetyConfig.AdminBaseURL,
 		p.safetyConfig.AdminTimeoutSecond,
+		p.adminBasicAuth(),
 	)
 	if err != nil {
 		return err
@@ -169,11 +189,12 @@ func (p *SafetyPlugin) applyModelRuntimeConfig(ctx context.Context) error {
 }
 
 func (p *SafetyPlugin) applySafetyPromptRules(ctx context.Context) error {
-	cfgs, err := config.ListAdminProjectConfigsByType(
+	cfgs, err := config.ListAdminProjectConfigsByTypeWithAuth(
 		ctx,
 		p.safetyConfig.AdminBaseURL,
 		p.safetyConfig.AdminTimeoutSecond,
 		"safety",
+		p.adminBasicAuth(),
 	)
 	if err != nil {
 		return err

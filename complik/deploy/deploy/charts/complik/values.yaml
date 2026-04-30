@@ -38,6 +38,11 @@ external:
   admin:
     baseURL: "http://sealos-complik-admin:8080"
     timeoutSecond: 10
+    basicAuth:
+      enabled: false
+      secretName: sealos-complik-admin-auth
+      usernameKey: username
+      passwordKey: password
 
 plugins:
   complete:

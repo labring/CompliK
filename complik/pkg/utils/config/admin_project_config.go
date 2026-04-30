@@ -78,11 +78,21 @@ func ListAdminProjectConfigs(
 	adminBaseURL string,
 	timeoutSecond int,
 ) ([]AdminProjectConfig, error) {
+	return ListAdminProjectConfigsWithAuth(ctx, adminBaseURL, timeoutSecond, ResolveAdminBasicAuth("", ""))
+}
+
+func ListAdminProjectConfigsWithAuth(
+	ctx context.Context,
+	adminBaseURL string,
+	timeoutSecond int,
+	auth AdminBasicAuth,
+) ([]AdminProjectConfig, error) {
 	endpoint := NormalizeAdminBaseURL(adminBaseURL) + "/api/configs"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create admin list request failed: %w", err)
 	}
+	auth.Apply(req)
 
 	resp, err := adminHTTPClient(timeoutSecond).Do(req)
 	if err != nil {
@@ -111,6 +121,22 @@ func ListAdminProjectConfigsByType(
 	timeoutSecond int,
 	configType string,
 ) ([]AdminProjectConfig, error) {
+	return ListAdminProjectConfigsByTypeWithAuth(
+		ctx,
+		adminBaseURL,
+		timeoutSecond,
+		configType,
+		ResolveAdminBasicAuth("", ""),
+	)
+}
+
+func ListAdminProjectConfigsByTypeWithAuth(
+	ctx context.Context,
+	adminBaseURL string,
+	timeoutSecond int,
+	configType string,
+	auth AdminBasicAuth,
+) ([]AdminProjectConfig, error) {
 	trimmedType := strings.TrimSpace(configType)
 	if trimmedType == "" {
 		return nil, fmt.Errorf("config_type is required")
@@ -121,6 +147,7 @@ func ListAdminProjectConfigsByType(
 	if err != nil {
 		return nil, fmt.Errorf("create admin list-by-type request failed: %w", err)
 	}
+	auth.Apply(req)
 
 	resp, err := adminHTTPClient(timeoutSecond).Do(req)
 	if err != nil {
@@ -153,7 +180,23 @@ func LoadSingleAdminProjectConfigByType(
 	timeoutSecond int,
 	configType string,
 ) (*AdminProjectConfig, error) {
-	cfgs, err := ListAdminProjectConfigsByType(ctx, adminBaseURL, timeoutSecond, configType)
+	return LoadSingleAdminProjectConfigByTypeWithAuth(
+		ctx,
+		adminBaseURL,
+		timeoutSecond,
+		configType,
+		ResolveAdminBasicAuth("", ""),
+	)
+}
+
+func LoadSingleAdminProjectConfigByTypeWithAuth(
+	ctx context.Context,
+	adminBaseURL string,
+	timeoutSecond int,
+	configType string,
+	auth AdminBasicAuth,
+) (*AdminProjectConfig, error) {
+	cfgs, err := ListAdminProjectConfigsByTypeWithAuth(ctx, adminBaseURL, timeoutSecond, configType, auth)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +221,22 @@ func LoadModelRuntimeConfig(
 	adminBaseURL string,
 	timeoutSecond int,
 ) (*ModelRuntimeConfig, error) {
-	cfg, err := LoadSingleAdminProjectConfigByType(ctx, adminBaseURL, timeoutSecond, "model_runtime")
+	return LoadModelRuntimeConfigWithAuth(ctx, adminBaseURL, timeoutSecond, ResolveAdminBasicAuth("", ""))
+}
+
+func LoadModelRuntimeConfigWithAuth(
+	ctx context.Context,
+	adminBaseURL string,
+	timeoutSecond int,
+	auth AdminBasicAuth,
+) (*ModelRuntimeConfig, error) {
+	cfg, err := LoadSingleAdminProjectConfigByTypeWithAuth(
+		ctx,
+		adminBaseURL,
+		timeoutSecond,
+		"model_runtime",
+		auth,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +259,22 @@ func LoadNotificationsRuntimeConfig(
 	adminBaseURL string,
 	timeoutSecond int,
 ) (*NotificationsRuntimeConfig, error) {
-	cfg, err := LoadSingleAdminProjectConfigByType(ctx, adminBaseURL, timeoutSecond, "complik_notifications_runtime")
+	return LoadNotificationsRuntimeConfigWithAuth(ctx, adminBaseURL, timeoutSecond, ResolveAdminBasicAuth("", ""))
+}
+
+func LoadNotificationsRuntimeConfigWithAuth(
+	ctx context.Context,
+	adminBaseURL string,
+	timeoutSecond int,
+	auth AdminBasicAuth,
+) (*NotificationsRuntimeConfig, error) {
+	cfg, err := LoadSingleAdminProjectConfigByTypeWithAuth(
+		ctx,
+		adminBaseURL,
+		timeoutSecond,
+		"complik_notifications_runtime",
+		auth,
+	)
 	if err != nil {
 		return nil, err
 	}

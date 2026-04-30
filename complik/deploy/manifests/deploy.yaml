@@ -67,7 +67,9 @@ data:
           {
             "maxWorkers": 20,
             "adminBaseURL": "http://sealos-complik-admin:8080",
-            "adminTimeoutSecond": 10
+            "adminTimeoutSecond": 10,
+            "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+            "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
           }
 
       - name: "Custom"
@@ -77,7 +79,9 @@ data:
           {
             "maxWorkers": 20,
             "adminBaseURL": "http://sealos-complik-admin:8080",
-            "adminTimeoutSecond": 10
+            "adminTimeoutSecond": 10,
+            "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+            "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
           }
 
       - name: "AdminReporter"
@@ -87,7 +91,9 @@ data:
           {
             "region": "hzh",
             "adminBaseURL": "http://sealos-complik-admin:8080",
-            "adminTimeoutSecond": 10
+            "adminTimeoutSecond": 10,
+            "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+            "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
           }
 
       - name: "Lark"
@@ -97,7 +103,9 @@ data:
           {
             "region": "hzh",
             "adminBaseURL": "http://sealos-complik-admin:8080",
-            "adminTimeoutSecond": 10
+            "adminTimeoutSecond": 10,
+            "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",
+            "adminBasicAuthPassword": "${ADMIN_BASIC_AUTH_PASSWORD}"
           }
     logging:
       level: "info"
@@ -164,6 +172,16 @@ spec:
               value: /tmp/.cache
             - name: ROD_BROWSER_BIN
               value: /usr/bin/chromium
+            - name: ADMIN_BASIC_AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: sealos-complik-admin-auth
+                  key: username
+            - name: ADMIN_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sealos-complik-admin-auth
+                  key: password
           ports:
             - containerPort: 8428
               protocol: TCP

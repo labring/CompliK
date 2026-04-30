@@ -47,8 +47,14 @@ type LarkNotificationConfig struct {
 
 // AdminNotificationConfig contains configuration for the admin API.
 type AdminNotificationConfig struct {
-	BaseURL string        `yaml:"base_url"`
-	Timeout time.Duration `yaml:"timeout"`
+	BaseURL   string               `yaml:"base_url"`
+	Timeout   time.Duration        `yaml:"timeout"`
+	BasicAuth AdminBasicAuthConfig `yaml:"basic_auth"`
+}
+
+type AdminBasicAuthConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // NotificationsConfig aggregates all notification channels

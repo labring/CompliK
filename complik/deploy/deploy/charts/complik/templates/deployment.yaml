@@ -41,6 +41,18 @@ spec:
               value: {{ .Values.browserRuntime.cacheHome | quote }}
             - name: ROD_BROWSER_BIN
               value: {{ .Values.browserRuntime.bin | quote }}
+            {{- if .Values.external.admin.basicAuth.enabled }}
+            - name: ADMIN_BASIC_AUTH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.external.admin.basicAuth.secretName | quote }}
+                  key: {{ .Values.external.admin.basicAuth.usernameKey | quote }}
+            - name: ADMIN_BASIC_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.external.admin.basicAuth.secretName | quote }}
+                  key: {{ .Values.external.admin.basicAuth.passwordKey | quote }}
+            {{- end }}
             - name: USE_SERVICE_ACCOUNT
               value: {{ .Values.kubeconfig.useServiceAccount | quote }}
             {{- if not .Values.kubeconfig.useServiceAccount }}
