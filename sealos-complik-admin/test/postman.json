@@ -1,0 +1,906 @@
+{
+  "info": {
+    "_postman_id": "4bba2f6c-50b2-45e8-ae1c-f39ec5480d96",
+    "name": "Sealos Complik Admin API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection for the sealos-complik-admin service."
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "config_name",
+      "value": "project-config-demo",
+      "type": "string"
+    },
+    {
+      "key": "commitment_namespace",
+      "value": "ns-1001",
+      "type": "string"
+    },
+    {
+      "key": "violation_namespace",
+      "value": "ns-2001",
+      "type": "string"
+    },
+    {
+      "key": "ban_namespace",
+      "value": "ns-3001",
+      "type": "string"
+    },
+    {
+      "key": "ban_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "unban_namespace",
+      "value": "ns-4001",
+      "type": "string"
+    },
+    {
+      "key": "unban_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Check whether the service is running."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Commitment",
+      "item": [
+        {
+          "name": "Create Commitment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"commitment created successfully\");",
+                  "});",
+                  "var requestData = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.collectionVariables.set(\"commitment_namespace\", requestData.namespace);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"namespace\": \"ns-{{$timestamp}}\",\n  \"file_name\": \"commitment-{{$timestamp}}.pdf\",\n  \"file_url\": \"https://oss.example.com/commitments/commitment-{{$timestamp}}.pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/commitments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "commitments"
+              ]
+            },
+            "description": "Create a new commitment."
+          },
+          "response": []
+        },
+        {
+          "name": "List Commitments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response is array\", function () {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.length > 0) {",
+                  "    pm.collectionVariables.set(\"commitment_namespace\", jsonData[jsonData.length - 1].namespace);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/commitments",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "commitments"
+              ]
+            },
+            "description": "List all commitments."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Commitment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/commitments/{{commitment_namespace}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "commitments",
+                "{{commitment_namespace}}"
+              ]
+            },
+            "description": "Get a commitment by namespace."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Commitment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"commitment updated successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_name\": \"commitment-updated-{{$timestamp}}.pdf\",\n  \"file_url\": \"https://oss.example.com/commitments/commitment-updated-{{$timestamp}}.pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/commitments/{{commitment_namespace}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "commitments",
+                "{{commitment_namespace}}"
+              ]
+            },
+            "description": "Update a commitment by namespace."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Commitment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"commitment deleted successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/commitments/{{commitment_namespace}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "commitments",
+                "{{commitment_namespace}}"
+              ]
+            },
+            "description": "Delete a commitment by namespace."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Project Config",
+      "item": [
+        {
+          "name": "Create Project Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"project config created successfully\");",
+                  "});",
+                  "var requestData = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.collectionVariables.set(\"config_name\", requestData.config_name);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"config_name\": \"project-config-{{$timestamp}}\",\n  \"config_type\": \"yaml\",\n  \"config_value\": {\n    \"replicas\": 2,\n    \"image\": \"nginx:1.27\",\n    \"env\": {\n      \"APP_ENV\": \"dev\"\n    }\n  },\n  \"description\": \"sample project config created from postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/configs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "configs"
+              ]
+            },
+            "description": "Create a new project configuration."
+          },
+          "response": []
+        },
+        {
+          "name": "List Project Configs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response is array\", function () {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.length > 0) {",
+                  "    pm.collectionVariables.set(\"config_name\", jsonData[jsonData.length - 1].config_name);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/configs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "configs"
+              ]
+            },
+            "description": "List all project configurations."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Project Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/configs/{{config_name}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "configs",
+                "{{config_name}}"
+              ]
+            },
+            "description": "Get a project configuration by config name."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Project Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"project config updated successfully\");",
+                  "});",
+                  "var requestData = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.collectionVariables.set(\"config_name\", requestData.config_name);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"config_name\": \"{{config_name}}\",\n  \"config_type\": \"yaml\",\n  \"config_value\": {\n    \"replicas\": 3,\n    \"image\": \"nginx:1.27.1\",\n    \"env\": {\n      \"APP_ENV\": \"prod\"\n    }\n  },\n  \"description\": \"updated from postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/configs/{{config_name}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "configs",
+                "{{config_name}}"
+              ]
+            },
+            "description": "Update a project configuration by config name."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Project Config",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"project config deleted successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/configs/{{config_name}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "configs",
+                "{{config_name}}"
+              ]
+            },
+            "description": "Delete a project configuration by config name."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ban",
+      "item": [
+        {
+          "name": "Create Ban",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"ban created successfully\");",
+                  "});",
+                  "var requestData = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.collectionVariables.set(\"ban_namespace\", requestData.namespace);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"namespace\": \"ns-{{$timestamp}}\",\n  \"reason\": \"malicious behavior\",\n  \"ban_start_time\": \"2026-03-31T10:00:00Z\",\n  \"ban_end_time\": \"2026-04-30T10:00:00Z\",\n  \"operator_name\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/bans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "bans"
+              ]
+            },
+            "description": "Create a new ban record."
+          },
+          "response": []
+        },
+        {
+          "name": "List Bans",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response is array\", function () {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.length > 0) {",
+                  "    pm.collectionVariables.set(\"ban_namespace\", jsonData[0].namespace);",
+                  "    pm.collectionVariables.set(\"ban_id\", String(jsonData[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "bans"
+              ]
+            },
+            "description": "List all ban records."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Namespace Bans",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response is array\", function () {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bans/{{ban_namespace}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "bans",
+                "{{ban_namespace}}"
+              ]
+            },
+            "description": "Get all ban records for a namespace."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ban Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/namespaces/{{ban_namespace}}/ban-status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "namespaces",
+                "{{ban_namespace}}",
+                "ban-status"
+              ]
+            },
+            "description": "Check whether a namespace is currently banned."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Ban By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"ban deleted successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/bans/id/{{ban_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "bans",
+                "id",
+                "{{ban_id}}"
+              ]
+            },
+            "description": "Delete a single ban record by id."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Unban",
+      "item": [
+        {
+          "name": "Create Unban",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"unban created successfully\");",
+                  "});",
+                  "var requestData = JSON.parse(pm.variables.replaceIn(pm.request.body.raw));",
+                  "pm.collectionVariables.set(\"unban_namespace\", requestData.namespace);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"namespace\": \"ns-{{$timestamp}}\",\n  \"operator_name\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/unbans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "unbans"
+              ]
+            },
+            "description": "Create a new unban record."
+          },
+          "response": []
+        },
+        {
+          "name": "List Unbans",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response is array\", function () {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.length > 0) {",
+                  "    pm.collectionVariables.set(\"unban_namespace\", jsonData[0].namespace);",
+                  "    pm.collectionVariables.set(\"unban_id\", String(jsonData[0].id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/unbans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "unbans"
+              ]
+            },
+            "description": "List all unban records."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Namespace Unbans",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response is array\", function () {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/unbans/{{unban_namespace}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "unbans",
+                "{{unban_namespace}}"
+              ]
+            },
+            "description": "Get all unban records for a namespace."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Unban By ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"response message is correct\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.eql(\"unban deleted successfully\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/unbans/id/{{unban_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "unbans",
+                "id",
+                "{{unban_id}}"
+              ]
+            },
+            "description": "Delete a single unban record by id."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+# Configuration file for the application
+
+# Server settings
+port: 8080
+
+# Database settings
+database:
+  host: localhost
+  port: 3306
+  username: root
+  password: 123456
+  name: sealos-complik-admin
+
+auth:
+  enabled: false
+  username: admin
+  password: changeme
+  realm: CompliK Admin
+
+oss:
+  endpoint: oss-cn-hangzhou.aliyuncs.com
+  bucket: your-bucket-name
+  access_key_id: your-access-key-id
+  access_key_secret: your-access-key-secret
+  public_base_url: https://your-bucket-name.oss-cn-hangzhou.aliyuncs.com
+  object_prefix: commitments

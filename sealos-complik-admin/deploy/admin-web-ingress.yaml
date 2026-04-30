@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: complik-admin-web
+  namespace: sealos
+  labels:
+    app: complik-admin-web
+spec:
+  selector:
+    matchLabels:
+      app: complik-admin-web
+  template:
+    metadata:
+      labels:
+        app: complik-admin-web
+    spec:
+      containers:
+        - name: web
+          image: leonincs/complik-admin-web:xcq1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: complik-admin-web
+  namespace: sealos
+  labels:
+    app: complik-admin-web
+spec:
+  selector:
+    app: complik-admin-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: complik-admin
+  namespace: sealos
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: complik-admin.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: sealos-complik-admin
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: complik-admin-web
+                port:
+                  number: 80
