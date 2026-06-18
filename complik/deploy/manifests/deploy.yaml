@@ -51,6 +51,36 @@ data:
             "ageThresholdSecond": 300
           }
 
+      - name: "VLogPathDiscovery"
+        type: "Discovery"
+        enabled: false
+        settings: |
+          {
+            "logServerPath": "${VLOG_LOG_SERVER_PATH}",
+            "username": "${VLOG_USERNAME}",
+            "password": "${VLOG_PASSWORD}",
+            "app": "higress",
+            "intervalHour": 6,
+            "lookbackHour": 24,
+            "bucketHour": 1,
+            "topNPerHost": 50,
+            "queryLimitPerBucket": 50,
+            "maxGroupsPerRun": 500,
+            "queryConcurrency": 3,
+            "runTimeoutSecond": 900,
+            "resyncTimeSecond": 30,
+            "namespacePrefix": "ns-",
+            "fields": {
+              "time": "_time",
+              "host": "host",
+              "path": "path",
+              "method": "method",
+              "statusCode": "status_code",
+              "responseContentType": "response_content_type"
+            },
+            "contentTypeAllowlist": ["text/html", "application/xhtml+xml"]
+          }
+
       - name: "Browser"
         type: "Compliance"
         enabled: true
@@ -91,6 +121,9 @@ data:
         settings: |
           {
             "region": "hzh",
+            "aggregationWindowSecond": 300,
+            "maxAggregationBuckets": 1000,
+            "maxPathsPerBucket": 50,
             "adminBaseURL": "http://sealos-complik-admin:8080",
             "adminTimeoutSecond": 10,
             "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",

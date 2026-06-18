@@ -46,6 +46,28 @@ data:
             "resyncTimeSecond": {{ .Values.plugins.statefulset.resyncTimeSecond }},
             "ageThresholdSecond": {{ .Values.plugins.statefulset.ageThresholdSecond }}
           }
+      - name: "VLogPathDiscovery"
+        type: "Discovery"
+        enabled: {{ .Values.plugins.vlogPathDiscovery.enabled }}
+        settings: |
+          {
+            "logServerPath": {{ .Values.plugins.vlogPathDiscovery.logServerPath | quote }},
+            "username": {{ .Values.plugins.vlogPathDiscovery.username | quote }},
+            "password": {{ .Values.plugins.vlogPathDiscovery.password | quote }},
+            "app": {{ .Values.plugins.vlogPathDiscovery.app | quote }},
+            "intervalHour": {{ .Values.plugins.vlogPathDiscovery.intervalHour }},
+            "lookbackHour": {{ .Values.plugins.vlogPathDiscovery.lookbackHour }},
+            "bucketHour": {{ .Values.plugins.vlogPathDiscovery.bucketHour }},
+            "topNPerHost": {{ .Values.plugins.vlogPathDiscovery.topNPerHost }},
+            "queryLimitPerBucket": {{ .Values.plugins.vlogPathDiscovery.queryLimitPerBucket }},
+            "maxGroupsPerRun": {{ .Values.plugins.vlogPathDiscovery.maxGroupsPerRun }},
+            "queryConcurrency": {{ .Values.plugins.vlogPathDiscovery.queryConcurrency }},
+            "runTimeoutSecond": {{ .Values.plugins.vlogPathDiscovery.runTimeoutSecond }},
+            "resyncTimeSecond": {{ .Values.plugins.vlogPathDiscovery.resyncTimeSecond }},
+            "namespacePrefix": {{ .Values.plugins.vlogPathDiscovery.namespacePrefix | quote }},
+            "fields": {{ .Values.plugins.vlogPathDiscovery.fields | toJson }},
+            "contentTypeAllowlist": {{ .Values.plugins.vlogPathDiscovery.contentTypeAllowlist | toJson }}
+          }
       - name: "Browser"
         type: "Compliance"
         enabled: {{ .Values.plugins.browser.enabled }}
@@ -83,6 +105,9 @@ data:
         settings: |
           {
             "region": {{ .Values.external.region | quote }},
+            "aggregationWindowSecond": {{ .Values.plugins.lark.aggregationWindowSecond }},
+            "maxAggregationBuckets": {{ .Values.plugins.lark.maxAggregationBuckets }},
+            "maxPathsPerBucket": {{ .Values.plugins.lark.maxPathsPerBucket }},
             "adminBaseURL": {{ .Values.external.admin.baseURL | quote }},
             "adminTimeoutSecond": {{ .Values.external.admin.timeoutSecond }},
             "adminBasicAuthUsername": "${ADMIN_BASIC_AUTH_USERNAME}",

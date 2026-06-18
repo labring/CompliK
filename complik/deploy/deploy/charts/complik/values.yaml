@@ -70,6 +70,33 @@ plugins:
     resyncTimeSecond: 5
     ageThresholdSecond: 300
 
+  vlogPathDiscovery:
+    enabled: false
+    logServerPath: ""
+    username: ""
+    password: ""
+    app: higress
+    intervalHour: 6
+    lookbackHour: 24
+    bucketHour: 1
+    topNPerHost: 50
+    queryLimitPerBucket: 50
+    maxGroupsPerRun: 500
+    queryConcurrency: 3
+    runTimeoutSecond: 900
+    resyncTimeSecond: 30
+    namespacePrefix: ns-
+    fields:
+      time: _time
+      host: host
+      path: path
+      method: method
+      statusCode: status_code
+      responseContentType: response_content_type
+    contentTypeAllowlist:
+      - text/html
+      - application/xhtml+xml
+
   browser:
     enabled: true
     timeout: 100
@@ -91,6 +118,9 @@ plugins:
 
   lark:
     enabled: true
+    aggregationWindowSecond: 300
+    maxAggregationBuckets: 1000
+    maxPathsPerBucket: 50
 
 config:
   logging:
