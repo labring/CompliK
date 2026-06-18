@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bearslyricattack/CompliK/complik/pkg/constants"
@@ -47,10 +48,13 @@ func init() {
 }
 
 type LarkPlugin struct {
-	log        logger.Logger
-	notifier   *Notifier
-	aggregator *NotificationAggregator
-	larkConfig LarkConfig
+	log                  logger.Logger
+	notifier             *Notifier
+	aggregator           *NotificationAggregator
+	larkConfig           LarkConfig
+	subscriptionMu       sync.Mutex
+	subscriptionEventBus *eventbus.EventBus
+	subscription         eventbus.EventChan
 }
 
 func (p *LarkPlugin) Name() string {
@@ -200,6 +204,7 @@ func (p *LarkPlugin) Start(
 		return err
 	}
 
+	p.stopAggregator()
 	p.notifier = NewNotifier(p.larkConfig.Webhook, p.larkConfig.Region)
 	p.aggregator = NewNotificationAggregator(
 		time.Duration(p.larkConfig.AggregationWindowSecond)*time.Second,
@@ -209,8 +214,12 @@ func (p *LarkPlugin) Start(
 		p.log,
 	)
 
+	p.unsubscribeDetectorTopic(nil)
+
 	subscribe := eventBus.Subscribe(constants.DetectorTopic)
-	go func() {
+	p.setSubscription(eventBus, subscribe)
+	go func(subscription eventbus.EventChan) {
+		defer p.unsubscribeDetectorTopic(subscription)
 		defer func() {
 			if r := recover(); r != nil {
 				p.log.Error("Plugin goroutine panic", logger.Fields{
@@ -221,7 +230,7 @@ func (p *LarkPlugin) Start(
 
 		for {
 			select {
-			case event, ok := <-subscribe:
+			case event, ok := <-subscription:
 				if !ok {
 					p.log.Info("Event subscription channel closed")
 					return
@@ -244,15 +253,54 @@ func (p *LarkPlugin) Start(
 				return
 			}
 		}
-	}()
+	}(subscribe)
 
 	return nil
 }
 
 func (p *LarkPlugin) Stop(ctx context.Context) error {
-	if p.aggregator != nil {
-		p.aggregator.Stop()
-	}
+	p.unsubscribeDetectorTopic(nil)
+	p.stopAggregator()
 
 	return nil
+}
+
+func (p *LarkPlugin) stopAggregator() {
+	if p.aggregator == nil {
+		return
+	}
+
+	p.aggregator.Stop()
+	p.aggregator = nil
+}
+
+func (p *LarkPlugin) setSubscription(
+	eventBus *eventbus.EventBus,
+	subscription eventbus.EventChan,
+) {
+	p.subscriptionMu.Lock()
+	defer p.subscriptionMu.Unlock()
+
+	p.subscriptionEventBus = eventBus
+	p.subscription = subscription
+}
+
+func (p *LarkPlugin) unsubscribeDetectorTopic(subscription eventbus.EventChan) {
+	p.subscriptionMu.Lock()
+	if p.subscriptionEventBus == nil || p.subscription == nil {
+		p.subscriptionMu.Unlock()
+		return
+	}
+	if subscription != nil && p.subscription != subscription {
+		p.subscriptionMu.Unlock()
+		return
+	}
+
+	eventBus := p.subscriptionEventBus
+	activeSubscription := p.subscription
+	p.subscriptionEventBus = nil
+	p.subscription = nil
+	p.subscriptionMu.Unlock()
+
+	eventBus.Unsubscribe(constants.DetectorTopic, activeSubscription)
 }

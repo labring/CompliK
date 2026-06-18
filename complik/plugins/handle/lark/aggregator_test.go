@@ -16,6 +16,7 @@
 package lark
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bearslyricattack/CompliK/complik/pkg/constants"
+	"github.com/bearslyricattack/CompliK/complik/pkg/eventbus"
 	"github.com/bearslyricattack/CompliK/complik/pkg/logger"
 	"github.com/bearslyricattack/CompliK/complik/pkg/models"
 )
@@ -289,4 +292,36 @@ func TestAggregatedCardUsesOriginalMarkdownFormat(t *testing.T) {
 			t.Fatalf("card body missing %q: %s", want, body)
 		}
 	}
+}
+
+func TestLarkPluginStopUnsubscribesDetectorTopic(t *testing.T) {
+	logger.Init()
+
+	bus := eventbus.NewEventBus(1)
+	plugin := &LarkPlugin{log: logger.GetLogger()}
+	subscription := bus.Subscribe(constants.DetectorTopic)
+	plugin.setSubscription(bus, subscription)
+
+	if err := plugin.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+
+	select {
+	case _, ok := <-subscription:
+		if ok {
+			t.Fatal("subscription channel is open")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("subscription channel was not closed")
+	}
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("Publish after Stop() panicked: %v", r)
+			}
+		}()
+
+		bus.Publish(constants.DetectorTopic, eventbus.Event{Payload: "after-stop"})
+	}()
 }
