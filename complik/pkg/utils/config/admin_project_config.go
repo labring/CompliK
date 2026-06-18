@@ -49,8 +49,11 @@ type ModelRuntimeConfig struct {
 }
 
 type NotificationsRuntimeConfig struct {
-	Region  string `json:"region"`
-	Webhook string `json:"webhook"`
+	Region                  string `json:"region"`
+	Webhook                 string `json:"webhook"`
+	AggregationWindowSecond int    `json:"aggregationWindowSecond"`
+	MaxAggregationBuckets   int    `json:"maxAggregationBuckets"`
+	MaxPathsPerBucket       int    `json:"maxPathsPerBucket"`
 }
 
 func (c *AdminProjectConfig) DecodeValue(dst any) error {

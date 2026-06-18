@@ -72,6 +72,27 @@ func (f *Notifier) SendAnalysisNotification(results *models.DetectorInfo) error 
 	return f.sendMessage(message)
 }
 
+func (f *Notifier) SendAggregatedNotification(alert AggregatedAlert) error {
+	if f.WebhookURL == "" {
+		return errors.New("webhook URL not configured, skipping notification")
+	}
+
+	if strings.TrimSpace(alert.Namespace) == "" || strings.TrimSpace(alert.Host) == "" {
+		return errors.New("aggregated alert missing namespace or host")
+	}
+
+	if len(alert.Paths) == 0 {
+		return nil
+	}
+
+	message := LarkMessage{
+		MsgType: "interactive",
+		Card:    f.buildAggregatedAlertMessage(alert),
+	}
+
+	return f.sendMessage(message)
+}
+
 func (f *Notifier) buildAlertMessage(results *models.DetectorInfo) map[string]any {
 	basicInfoElements := []map[string]any{
 		{
@@ -260,6 +281,201 @@ func (f *Notifier) buildAlertMessage(results *models.DetectorInfo) map[string]an
 		},
 		"elements": elements,
 	}
+}
+
+func (f *Notifier) buildAggregatedAlertMessage(alert AggregatedAlert) map[string]any {
+	paths := alert.SortedPaths()
+	firstSeen := formatAlertTime(alert.FirstSeenAt)
+	lastSeen := formatAlertTime(alert.LastSeenAt)
+
+	elements := []map[string]any{
+		{
+			"tag": "div",
+			"text": map[string]any{
+				"content": "**地域:** " + nonEmpty(alert.Region, f.Region),
+				"tag":     "lark_md",
+			},
+		},
+		{
+			"tag": "div",
+			"text": map[string]any{
+				"content": "**违规站点:** " + alertSiteURL(alert.Host),
+				"tag":     "lark_md",
+			},
+		},
+		{
+			"tag": "div",
+			"text": map[string]any{
+				"content": "**命名空间:** " + alert.Namespace,
+				"tag":     "lark_md",
+			},
+		},
+	}
+
+	if strings.TrimSpace(alert.Resource) != "" {
+		elements = append(elements, map[string]any{
+			"tag": "div",
+			"text": map[string]any{
+				"content": "**资源:** " + alert.Resource,
+				"tag":     "lark_md",
+			},
+		})
+	}
+
+	elements = append(elements,
+		map[string]any{
+			"tag": "div",
+			"text": map[string]any{
+				"content": "**首次发现:** " + firstSeen,
+				"tag":     "lark_md",
+			},
+		},
+		map[string]any{
+			"tag": "div",
+			"text": map[string]any{
+				"content": "**最近发现:** " + lastSeen,
+				"tag":     "lark_md",
+			},
+		},
+		map[string]any{
+			"tag": "div",
+			"text": map[string]any{
+				"content": fmt.Sprintf("**发现违规路径:** %d 个", len(paths)),
+				"tag":     "lark_md",
+			},
+		},
+		map[string]any{
+			"tag": "hr",
+		},
+	)
+
+	for i, path := range paths {
+		content := formatAggregatedPath(i+1, path)
+		elements = append(elements, map[string]any{
+			"tag": "div",
+			"text": map[string]any{
+				"content": content,
+				"tag":     "lark_md",
+			},
+		})
+	}
+
+	if alert.OmittedPathCount > 0 {
+		elements = append(elements, map[string]any{
+			"tag": "div",
+			"text": map[string]any{
+				"content": fmt.Sprintf("另有 %d 条违规路径已省略，请在后台查看完整记录。", alert.OmittedPathCount),
+				"tag":     "lark_md",
+			},
+		})
+	}
+
+	elements = append(elements,
+		map[string]any{
+			"tag": "hr",
+		},
+		map[string]any{
+			"tag": "div",
+			"text": map[string]any{
+				"content": "**请及时处理违规内容。后台违规记录已实时写入，可用于审计追溯。**",
+				"tag":     "lark_md",
+			},
+		},
+	)
+
+	return map[string]any{
+		"config": map[string]any{
+			"wide_screen_mode": true,
+		},
+		"header": map[string]any{
+			"template": "red",
+			"title": map[string]any{
+				"content": "网站内容违规聚合告警",
+				"tag":     "plain_text",
+			},
+		},
+		"elements": elements,
+	}
+}
+
+func formatAggregatedPath(index int, path AggregatedPathView) string {
+	var builder strings.Builder
+	fmt.Fprintf(&builder, "**%d. %s**\n", index, nonEmpty(path.Path, "/"))
+	if strings.TrimSpace(path.URL) != "" {
+		builder.WriteString(path.URL)
+		builder.WriteString("\n")
+	}
+	if len(path.Detectors) > 0 {
+		builder.WriteString("检测器：")
+		builder.WriteString(strings.Join(path.Detectors, ","))
+		builder.WriteString("\n")
+	}
+	if len(path.Devices) > 0 {
+		builder.WriteString("设备：")
+		builder.WriteString(strings.Join(path.Devices, ","))
+		builder.WriteString("\n")
+	}
+	if len(path.Descriptions) > 0 {
+		builder.WriteString("描述：")
+		builder.WriteString(strings.Join(path.Descriptions, "\n"))
+		builder.WriteString("\n")
+	}
+	if len(path.Keywords) > 0 {
+		builder.WriteString("命中关键词：")
+		builder.WriteString(strings.Join(path.Keywords, ","))
+		builder.WriteString("\n")
+	}
+	if len(path.Explanations) > 0 {
+		builder.WriteString("违规依据：")
+		builder.WriteString(strings.Join(path.Explanations, "\n"))
+		builder.WriteString("\n")
+	}
+
+	return strings.TrimSpace(builder.String())
+}
+
+func formatCodeValues(values []string) string {
+	var builder strings.Builder
+	for i, value := range values {
+		if i > 0 {
+			builder.WriteString(", ")
+		}
+
+		fmt.Fprintf(&builder, "`%s`", strings.TrimSpace(value))
+	}
+
+	return builder.String()
+}
+
+func formatAlertTime(value time.Time) string {
+	if value.IsZero() {
+		return time.Now().Format(time.DateTime)
+	}
+
+	return value.Local().Format(time.DateTime)
+}
+
+func alertSiteURL(host string) string {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(host, "http://") || strings.HasPrefix(host, "https://") {
+		return host
+	}
+
+	return "https://" + host
+}
+
+func nonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+
+	return ""
 }
 
 func (f *Notifier) sendMessage(message LarkMessage) error {

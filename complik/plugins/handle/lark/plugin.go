@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bearslyricattack/CompliK/complik/pkg/constants"
 	"github.com/bearslyricattack/CompliK/complik/pkg/eventbus"
@@ -46,6 +47,7 @@ func init() {
 type LarkPlugin struct {
 	log        logger.Logger
 	notifier   *Notifier
+	aggregator *NotificationAggregator
 	larkConfig LarkConfig
 }
 
@@ -58,19 +60,25 @@ func (p *LarkPlugin) Type() string {
 }
 
 type LarkConfig struct {
-	Region                 string `json:"region"`
-	Webhook                string `json:"webhook"`
-	AdminBaseURL           string `json:"adminBaseURL"`
-	AdminTimeoutSecond     int    `json:"adminTimeoutSecond"`
-	AdminBasicAuthUsername string `json:"adminBasicAuthUsername"`
-	AdminBasicAuthPassword string `json:"adminBasicAuthPassword"`
+	Region                  string `json:"region"`
+	Webhook                 string `json:"webhook"`
+	AggregationWindowSecond int    `json:"aggregationWindowSecond"`
+	MaxAggregationBuckets   int    `json:"maxAggregationBuckets"`
+	MaxPathsPerBucket       int    `json:"maxPathsPerBucket"`
+	AdminBaseURL            string `json:"adminBaseURL"`
+	AdminTimeoutSecond      int    `json:"adminTimeoutSecond"`
+	AdminBasicAuthUsername  string `json:"adminBasicAuthUsername"`
+	AdminBasicAuthPassword  string `json:"adminBasicAuthPassword"`
 }
 
 func (p *LarkPlugin) getDefaultConfig() LarkConfig {
 	return LarkConfig{
-		Region:             "UNKNOWN",
-		AdminBaseURL:       config.DefaultAdminBaseURL,
-		AdminTimeoutSecond: config.DefaultAdminTimeoutSecond,
+		Region:                  "UNKNOWN",
+		AggregationWindowSecond: int(defaultAggregationWindow / time.Second),
+		MaxAggregationBuckets:   defaultMaxAggregationBuckets,
+		MaxPathsPerBucket:       defaultMaxPathsPerBucket,
+		AdminBaseURL:            config.DefaultAdminBaseURL,
+		AdminTimeoutSecond:      config.DefaultAdminTimeoutSecond,
 	}
 }
 
@@ -94,6 +102,15 @@ func (p *LarkPlugin) loadConfig(ctx context.Context, setting string) error {
 	p.larkConfig.Webhook = configFromJSON.Webhook
 	if configFromJSON.Region != "" {
 		p.larkConfig.Region = configFromJSON.Region
+	}
+	if configFromJSON.AggregationWindowSecond > 0 {
+		p.larkConfig.AggregationWindowSecond = configFromJSON.AggregationWindowSecond
+	}
+	if configFromJSON.MaxAggregationBuckets > 0 {
+		p.larkConfig.MaxAggregationBuckets = configFromJSON.MaxAggregationBuckets
+	}
+	if configFromJSON.MaxPathsPerBucket > 0 {
+		p.larkConfig.MaxPathsPerBucket = configFromJSON.MaxPathsPerBucket
 	}
 
 	if strings.TrimSpace(configFromJSON.AdminBaseURL) != "" {
@@ -158,6 +175,15 @@ func (p *LarkPlugin) applyNotificationsRuntimeConfig(ctx context.Context) error 
 	}
 
 	p.larkConfig.Webhook = webhook
+	if runtimeCfg.AggregationWindowSecond > 0 {
+		p.larkConfig.AggregationWindowSecond = runtimeCfg.AggregationWindowSecond
+	}
+	if runtimeCfg.MaxAggregationBuckets > 0 {
+		p.larkConfig.MaxAggregationBuckets = runtimeCfg.MaxAggregationBuckets
+	}
+	if runtimeCfg.MaxPathsPerBucket > 0 {
+		p.larkConfig.MaxPathsPerBucket = runtimeCfg.MaxPathsPerBucket
+	}
 
 	return nil
 }
@@ -173,6 +199,13 @@ func (p *LarkPlugin) Start(
 	}
 
 	p.notifier = NewNotifier(p.larkConfig.Webhook, p.larkConfig.Region)
+	p.aggregator = NewNotificationAggregator(
+		time.Duration(p.larkConfig.AggregationWindowSecond)*time.Second,
+		p.larkConfig.MaxAggregationBuckets,
+		p.larkConfig.MaxPathsPerBucket,
+		p.notifier,
+		p.log,
+	)
 
 	subscribe := eventBus.Subscribe(constants.DetectorTopic)
 	go func() {
@@ -203,13 +236,7 @@ func (p *LarkPlugin) Start(
 				}
 
 				result.Region = p.larkConfig.Region
-
-				err := p.notifier.SendAnalysisNotification(result)
-				if err != nil {
-					p.log.Error("Failed to send notification", logger.Fields{
-						"error": err.Error(),
-					})
-				}
+				p.aggregator.Add(result)
 			case <-ctx.Done():
 				p.log.Info("Plugin received stop signal")
 				return
@@ -221,5 +248,9 @@ func (p *LarkPlugin) Start(
 }
 
 func (p *LarkPlugin) Stop(ctx context.Context) error {
+	if p.aggregator != nil {
+		p.aggregator.Stop()
+	}
+
 	return nil
 }
