@@ -142,7 +142,7 @@ func TestBuildQueryUsesConfiguredTimeField(t *testing.T) {
 		},
 	})
 
-	start := time.Date(2026, 6, 17, 0, 0, 0, 0, time.UTC)
+	start := time.Date(2026, time.June, 17, 0, 0, 0, 0, time.UTC)
 	end := start.Add(time.Hour)
 	got := client.buildQuery("example.com", start, end, 100)
 

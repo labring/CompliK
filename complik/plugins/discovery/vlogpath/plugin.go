@@ -396,14 +396,11 @@ func (p *VLogPathPlugin) processGroups(
 	var wg sync.WaitGroup
 
 	for range concurrency {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			for group := range groupCh {
 				publishedCh <- p.processGroup(ctx, group, windowStart, now, bucketDuration)
 			}
-		}()
+		})
 	}
 
 	go func() {
