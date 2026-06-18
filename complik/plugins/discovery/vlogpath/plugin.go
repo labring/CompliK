@@ -14,12 +14,15 @@
 
 // Package vlogpath provides a discovery plugin that finds real HTML sub-paths
 // from gateway access logs and publishes them as discovery events.
+//
+//nolint:wsl_v5 // Plugin orchestration keeps related config and Kubernetes branches compact.
 package vlogpath
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -93,19 +96,26 @@ func (p *VLogPathPlugin) getDefaultVLogPathConfig() VLogPathConfig {
 	// Defaults favor conservative discovery: HTML pages only, a one-day
 	// lookback window, and higher priority for paths that commonly expose risk.
 	return VLogPathConfig{
-		App:                  "higress",
-		IntervalHour:         6,
-		LookbackHour:         24,
-		BucketHour:           1,
-		TopNPerHost:          50,
-		QueryLimitPerBucket:  50,
-		MaxGroupsPerRun:      500,
-		QueryConcurrency:     3,
-		RunTimeoutSecond:     900,
-		HTTPTimeoutSecond:    30,
-		ResyncTimeSecond:     30,
-		NamespacePrefix:      "ns-",
-		HighRiskPrefixes:     []string{"/admin", "/login", "/pay", "/payment", "/promo", "/activity"},
+		App:                 "higress",
+		IntervalHour:        6,
+		LookbackHour:        24,
+		BucketHour:          1,
+		TopNPerHost:         50,
+		QueryLimitPerBucket: 50,
+		MaxGroupsPerRun:     500,
+		QueryConcurrency:    3,
+		RunTimeoutSecond:    900,
+		HTTPTimeoutSecond:   30,
+		ResyncTimeSecond:    30,
+		NamespacePrefix:     "ns-",
+		HighRiskPrefixes: []string{
+			"/admin",
+			"/login",
+			"/pay",
+			"/payment",
+			"/promo",
+			"/activity",
+		},
 		Fields:               DefaultVLogFields(),
 		ContentTypeAllowlist: []string{"text/html", "application/xhtml+xml"},
 		SeedCacheWarmupDelay: 5,
@@ -231,7 +241,9 @@ func (p *VLogPathPlugin) loadConfig(setting string) error {
 	}
 	p.vlogPathConfig.Fields = mergeVLogFields(p.vlogPathConfig.Fields, configFromJSON.Fields)
 	if len(configFromJSON.ContentTypeAllowlist) > 0 {
-		p.vlogPathConfig.ContentTypeAllowlist = normalizeContentTypes(configFromJSON.ContentTypeAllowlist)
+		p.vlogPathConfig.ContentTypeAllowlist = normalizeContentTypes(
+			configFromJSON.ContentTypeAllowlist,
+		)
 	}
 	if configFromJSON.SeedCacheWarmupDelay > 0 {
 		p.vlogPathConfig.SeedCacheWarmupDelay = configFromJSON.SeedCacheWarmupDelay
@@ -337,7 +349,10 @@ func (p *VLogPathPlugin) runOnce(ctx context.Context) {
 	runCtx := ctx
 	cancel := func() {}
 	if p.vlogPathConfig.RunTimeoutSecond > 0 {
-		runCtx, cancel = context.WithTimeout(ctx, time.Duration(p.vlogPathConfig.RunTimeoutSecond)*time.Second)
+		runCtx, cancel = context.WithTimeout(
+			ctx,
+			time.Duration(p.vlogPathConfig.RunTimeoutSecond)*time.Second,
+		)
 	}
 	defer cancel()
 
@@ -381,13 +396,11 @@ func (p *VLogPathPlugin) processGroups(
 	var wg sync.WaitGroup
 
 	for range concurrency {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for group := range groupCh {
 				publishedCh <- p.processGroup(ctx, group, windowStart, now, bucketDuration)
 			}
-		}()
+		})
 	}
 
 	go func() {
@@ -559,7 +572,7 @@ func mapCandidates(candidates map[string]*CandidatePath) []CandidatePath {
 func isPageRequest(entry VLogEntry, allowlist []string) bool {
 	// Discovery focuses on successful page navigations so API calls and static
 	// assets do not flood the candidate list.
-	if entry.Method != "" && entry.Method != "GET" {
+	if entry.Method != "" && entry.Method != http.MethodGet {
 		return false
 	}
 

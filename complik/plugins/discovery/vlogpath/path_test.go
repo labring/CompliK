@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:testpackage,wsl_v5 // Tests exercise unexported ranking and config helpers.
 package vlogpath
 
 import (
@@ -26,7 +27,11 @@ func TestNormalizeContentType(t *testing.T) {
 		want string
 	}{
 		{name: "html charset", in: "text/html; charset=utf-8", want: "text/html"},
-		{name: "xhtml charset", in: "application/xhtml+xml; charset=utf-8", want: "application/xhtml+xml"},
+		{
+			name: "xhtml charset",
+			in:   "application/xhtml+xml; charset=utf-8",
+			want: "application/xhtml+xml",
+		},
 		{name: "upper", in: "TEXT/HTML", want: "text/html"},
 	}
 

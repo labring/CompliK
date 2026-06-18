@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wsl_v5 // Discovery cache code keeps related Kubernetes branches compact.
 package vlogpath
 
 import (

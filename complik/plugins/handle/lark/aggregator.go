@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wsl_v5 // Aggregation code keeps related state transitions compact.
 package lark
 
 import (
@@ -193,7 +194,12 @@ func aggregateKey(namespace, host string) string {
 	return strings.TrimSpace(namespace) + "\x00" + strings.ToLower(strings.TrimSpace(host))
 }
 
-func mergeDetectorInfo(alert *AggregatedAlert, result *models.DetectorInfo, now time.Time, maxPaths int) {
+func mergeDetectorInfo(
+	alert *AggregatedAlert,
+	result *models.DetectorInfo,
+	now time.Time,
+	maxPaths int,
+) {
 	if strings.TrimSpace(alert.Region) == "" {
 		alert.Region = strings.TrimSpace(result.Region)
 	}

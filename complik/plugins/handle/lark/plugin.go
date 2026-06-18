@@ -13,6 +13,8 @@
 // limitations under the License.
 
 // Package lark implements a notification plugin for Lark (Feishu) messaging platform.
+//
+//nolint:wsl_v5 // Plugin config loading keeps related override branches compact.
 package lark
 
 import (

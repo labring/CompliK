@@ -434,19 +434,6 @@ func formatAggregatedPath(index int, path AggregatedPathView) string {
 	return strings.TrimSpace(builder.String())
 }
 
-func formatCodeValues(values []string) string {
-	var builder strings.Builder
-	for i, value := range values {
-		if i > 0 {
-			builder.WriteString(", ")
-		}
-
-		fmt.Fprintf(&builder, "`%s`", strings.TrimSpace(value))
-	}
-
-	return builder.String()
-}
-
 func formatAlertTime(value time.Time) string {
 	if value.IsZero() {
 		return time.Now().Format(time.DateTime)

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wsl_v5 // Path normalization and ranking keep related checks compact.
 package vlogpath
 
 import (
@@ -203,7 +204,8 @@ func highRiskScore(path string, prefixes []string) int {
 			continue
 		}
 
-		if normalizedPath == normalizedPrefix || strings.HasPrefix(normalizedPath, normalizedPrefix+"/") {
+		if normalizedPath == normalizedPrefix ||
+			strings.HasPrefix(normalizedPath, normalizedPrefix+"/") {
 			score = max(score, len(normalizedPrefix))
 		}
 	}

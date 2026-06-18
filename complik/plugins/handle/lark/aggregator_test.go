@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:testpackage,wsl_v5 // Tests exercise unexported aggregation helpers.
 package lark
 
 import (
@@ -33,7 +34,7 @@ func TestMergeDetectorInfoAggregatesSitePaths(t *testing.T) {
 		Host:      "example.com",
 		Paths:     map[string]*AggregatedPath{},
 	}
-	now := time.Date(2026, 6, 16, 14, 3, 0, 0, time.Local)
+	now := time.Date(2026, time.June, 16, 14, 3, 0, 0, time.Local)
 
 	mergeDetectorInfo(&alert, &models.DetectorInfo{
 		DetectorName:  "Safety",
@@ -110,7 +111,13 @@ func TestNotificationAggregatorSendsOneAggregatedMessage(t *testing.T) {
 
 	logger.Init()
 	notifier := NewNotifier(server.URL, "53")
-	aggregator := NewNotificationAggregator(20*time.Millisecond, 1000, 50, notifier, logger.GetLogger())
+	aggregator := NewNotificationAggregator(
+		20*time.Millisecond,
+		1000,
+		50,
+		notifier,
+		logger.GetLogger(),
+	)
 
 	aggregator.Add(&models.DetectorInfo{
 		DetectorName:  "Safety",
@@ -167,7 +174,7 @@ func TestAggregatorLimitsPathsPerBucket(t *testing.T) {
 		Host:      "example.com",
 		Paths:     map[string]*AggregatedPath{},
 	}
-	now := time.Date(2026, 6, 16, 14, 3, 0, 0, time.Local)
+	now := time.Date(2026, time.June, 16, 14, 3, 0, 0, time.Local)
 
 	mergeDetectorInfo(&alert, &models.DetectorInfo{
 		DetectorName: "Safety",
@@ -193,8 +200,8 @@ func TestAggregatedCardShowsOmittedPathCount(t *testing.T) {
 		Resource:         "complik-demo-ing",
 		Namespace:        "ns-demo",
 		Host:             "example.com",
-		FirstSeenAt:      time.Date(2026, 6, 17, 7, 52, 38, 0, time.Local),
-		LastSeenAt:       time.Date(2026, 6, 17, 7, 57, 38, 0, time.Local),
+		FirstSeenAt:      time.Date(2026, time.June, 17, 7, 52, 38, 0, time.Local),
+		LastSeenAt:       time.Date(2026, time.June, 17, 7, 57, 38, 0, time.Local),
 		OmittedPathCount: 3,
 		Paths: map[string]*AggregatedPath{
 			"/gambling": {
@@ -219,7 +226,7 @@ func TestAggregatedCardShowsOmittedPathCount(t *testing.T) {
 }
 
 func TestAggregatedCardUsesOriginalMarkdownFormat(t *testing.T) {
-	firstSeen := time.Date(2026, 6, 17, 7, 52, 38, 0, time.Local)
+	firstSeen := time.Date(2026, time.June, 17, 7, 52, 38, 0, time.Local)
 	alert := AggregatedAlert{
 		Region:      "53",
 		Resource:    "complik-demo-ing",

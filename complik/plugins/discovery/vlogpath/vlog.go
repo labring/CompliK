@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//nolint:wsl_v5 // VLog parsing handles several compact schema branches.
 package vlogpath
 
 import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -143,7 +145,7 @@ func (c *VLogClient) Query(
 	// Query returns normalized entries only; filtering and ranking stay in the
 	// plugin layer where Ingress seed context is available.
 	if strings.TrimSpace(c.baseURL) == "" {
-		return nil, fmt.Errorf("VLog base URL is empty")
+		return nil, errors.New("VLog base URL is empty")
 	}
 
 	if limit <= 0 {
@@ -198,7 +200,12 @@ func (c *VLogClient) buildQuery(host string, start, end time.Time, limit int) st
 		fmt.Fprintf(&builder, `%s:="%s" `, key, escapeLogQLValue(fmt.Sprint(value)))
 	}
 
-	fmt.Fprintf(&builder, `_time:[%s,%s] `, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
+	fmt.Fprintf(
+		&builder,
+		`_time:[%s,%s] `,
+		start.UTC().Format(time.RFC3339),
+		end.UTC().Format(time.RFC3339),
+	)
 	builder.WriteString(`| unpack_json `)
 	builder.WriteString(`| Drop _stream_id,_stream,job,node `)
 	fmt.Fprintf(&builder, `| limit %d`, limit)
@@ -287,12 +294,33 @@ func (c *VLogClient) parseRows(rows []map[string]any) []VLogEntry {
 	entries := make([]VLogEntry, 0, len(rows))
 	for _, row := range rows {
 		entry := VLogEntry{
-			Time:                readTime(row, c.fields.Time),
-			Host:                readString(row, c.fields.Host),
-			Path:                readFirstString(row, c.fields.Path, "request_path", "uri", "request_uri", "url_path"),
-			Method:              strings.ToUpper(readFirstString(row, c.fields.Method, "request_method", "http_method")),
-			StatusCode:          readInt(row, c.fields.StatusCode, "status", "statusCode", "response_code"),
-			ResponseContentType: readFirstString(row, c.fields.ResponseContentType, "content_type", "responseContentType", "resp_content_type"),
+			Time: readTime(row, c.fields.Time),
+			Host: readString(row, c.fields.Host),
+			Path: readFirstString(
+				row,
+				c.fields.Path,
+				"request_path",
+				"uri",
+				"request_uri",
+				"url_path",
+			),
+			Method: strings.ToUpper(
+				readFirstString(row, c.fields.Method, "request_method", "http_method"),
+			),
+			StatusCode: readInt(
+				row,
+				c.fields.StatusCode,
+				"status",
+				"statusCode",
+				"response_code",
+			),
+			ResponseContentType: readFirstString(
+				row,
+				c.fields.ResponseContentType,
+				"content_type",
+				"responseContentType",
+				"resp_content_type",
+			),
 		}
 
 		if entry.Path == "" {
