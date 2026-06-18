@@ -23,6 +23,7 @@ const (
 	DiscoveryInformerEndPointSliceName   = "Endpointslice"
 	DiscoveryInformerServiceNodePortName = "NodePort"
 	DiscoveryInformerIngressName         = "Ingress"
+	DiscoveryVLogPathName                = "VLogPathDiscovery"
 )
 
 const (
