@@ -16,6 +16,7 @@
 package vlogpath
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -129,5 +130,24 @@ func TestDefaultConfigHasLargeClusterGuards(t *testing.T) {
 	}
 	if cfg.RunTimeoutSecond != 900 {
 		t.Fatalf("RunTimeoutSecond = %d, want 900", cfg.RunTimeoutSecond)
+	}
+}
+
+func TestBuildQueryUsesConfiguredTimeField(t *testing.T) {
+	client := NewVLogClient(VLogClientConfig{
+		App: "higress-gateway",
+		Fields: VLogFields{
+			Time: "event_time",
+			Host: "authority",
+		},
+	})
+
+	start := time.Date(2026, 6, 17, 0, 0, 0, 0, time.UTC)
+	end := start.Add(time.Hour)
+	got := client.buildQuery("example.com", start, end, 100)
+
+	want := `event_time:[2026-06-17T00:00:00Z,2026-06-17T01:00:00Z]`
+	if !strings.Contains(got, want) {
+		t.Fatalf("buildQuery() = %q, want contains %q", got, want)
 	}
 }

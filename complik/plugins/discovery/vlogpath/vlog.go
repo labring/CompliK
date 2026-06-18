@@ -202,7 +202,8 @@ func (c *VLogClient) buildQuery(host string, start, end time.Time, limit int) st
 
 	fmt.Fprintf(
 		&builder,
-		`_time:[%s,%s] `,
+		`%s:[%s,%s] `,
+		c.fields.Time,
 		start.UTC().Format(time.RFC3339),
 		end.UTC().Format(time.RFC3339),
 	)
