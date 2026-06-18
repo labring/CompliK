@@ -75,20 +75,23 @@ func (eb *EventBus) Subscribe(topic string) EventChan {
 // Unsubscribe removes a subscription from the specified topic and closes the channel
 func (eb *EventBus) Unsubscribe(topic string, ch EventChan) {
 	eb.mu.Lock()
-	defer eb.mu.Unlock()
-
+	found := false
 	if subscribers, ok := eb.subscribers[topic]; ok {
 		for i, subscriber := range subscribers {
 			if ch == subscriber {
 				eb.subscribers[topic] = append(subscribers[:i], subscribers[i+1:]...)
-
-				close(ch)
-
-				for range ch {
-				}
-
-				return
+				found = true
+				break
 			}
 		}
+	}
+	eb.mu.Unlock()
+
+	if !found {
+		return
+	}
+
+	close(ch)
+	for range ch {
 	}
 }
