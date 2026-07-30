@@ -87,7 +87,7 @@ jobs:
 
       - name: Login to GitHub Container Registry
         if: ${{ github.event_name != 'pull_request' }}
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -144,7 +144,7 @@ jobs:
 
       - name: Login to GitHub Container Registry
         if: ${{ github.event_name != 'pull_request' }}
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -255,7 +255,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' }}
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -305,7 +305,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' }}
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -355,7 +355,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' }}
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -410,7 +410,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' }}
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -460,7 +460,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' && needs.build-block-controller.result == 'success' }}
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -525,7 +525,7 @@ jobs:
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
