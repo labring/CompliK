@@ -18,7 +18,7 @@ spec:
       serviceAccountName: block-controller
       containers:
         - name: controller
-          image: labring/complik-block-controller:latest
+          image: labring/CompliK/block-controller:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: BLOCK_CONTROLLER_LABEL_KEY
