@@ -1,7 +1,7 @@
 # Block Controller
 
 `block-controller` watches Kubernetes namespaces for the lock label
-`block.clawcloud.run/locked=true`.
+`block.sealos.io/locked=true`.
 
 When a namespace is locked, the controller creates:
 
@@ -34,7 +34,7 @@ namespaces and manage only the enforcement resources it owns:
 
 Environment variables:
 
-- `BLOCK_CONTROLLER_LABEL_KEY`, default `block.clawcloud.run/locked`
+- `BLOCK_CONTROLLER_LABEL_KEY`, default `block.sealos.io/locked`
 - `BLOCK_CONTROLLER_LABEL_VALUE`, default `true`
 - `BLOCK_CONTROLLER_NETWORK_POLICY_NAME`, default `block-controller-default-deny`
 - `BLOCK_CONTROLLER_RESOURCE_QUOTA_NAME`, default `block-controller-quota`

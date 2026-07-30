@@ -139,7 +139,7 @@ func TestNamespaceName(t *testing.T) {
 
 func testConfig() config.Config {
 	return config.Config{
-		NamespaceLabelKey:   "block.clawcloud.run/locked",
+		NamespaceLabelKey:   "block.sealos.io/locked",
 		NamespaceLabelValue: "true",
 		NetworkPolicyName:   "block-controller-default-deny",
 		ResourceQuotaName:   "block-controller-quota",

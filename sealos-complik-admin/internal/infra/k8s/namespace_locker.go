@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	NamespaceLockLabelKey    = "block.clawcloud.run/locked"
+	NamespaceLockLabelKey    = "block.sealos.io/locked"
 	NamespaceLockLabelValue  = "true"
 	defaultKubeConfigEnvName = "KUBECONFIG"
 )

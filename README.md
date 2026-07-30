@@ -31,7 +31,7 @@ This repository adopts a **Monorepo + Multi-module** architecture, organizing th
 ### 2. Block Controller
 **Kubernetes namespace block controller**
 
-- Watches the namespace lock label `block.clawcloud.run/locked=true`
+- Watches the namespace lock label `block.sealos.io/locked=true`
 - Applies default-deny NetworkPolicy and ResourceQuota rules
 - Cleans up blocking resources when the label is removed
 - Runs as a lightweight in-cluster controller
@@ -298,7 +298,7 @@ Although the three sub-projects are completely independent in code (no cross-ref
 2. Admin stores the violation and evaluates autoban_policy
    ↓
    Creates an audit ban record and labels the namespace:
-   "block.clawcloud.run/locked=true"
+   "block.sealos.io/locked=true"
 
 3. Block Controller listens to label changes
    ↓

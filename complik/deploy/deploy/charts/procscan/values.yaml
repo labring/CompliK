@@ -77,7 +77,7 @@ config:
     label:
       enabled: false
       data:
-        block.clawcloud.run/locked: "true"
+        block.sealos.io/locked: "true"
 
   notifications:
     admin:

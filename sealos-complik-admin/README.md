@@ -227,7 +227,7 @@ curl -X POST http://localhost:8080/api/configs \
 ```
 
 Autoban is disabled and dry-run by default. When enabled, admin creates the ban
-record and patches the namespace label `block.clawcloud.run/locked=true`.
+record and patches the namespace label `block.sealos.io/locked=true`.
 
 Create a commitment:
 
@@ -491,7 +491,7 @@ curl -X POST http://localhost:8080/api/configs \
 ```
 
 自动封禁默认关闭并处于 dry-run。显式启用后，admin 会创建封禁记录，并给
-namespace 打上 `block.clawcloud.run/locked=true` 标签。
+namespace 打上 `block.sealos.io/locked=true` 标签。
 
 创建承诺记录：
 

@@ -22,7 +22,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: BLOCK_CONTROLLER_LABEL_KEY
-              value: block.clawcloud.run/locked
+              value: block.sealos.io/locked
             - name: BLOCK_CONTROLLER_LABEL_VALUE
               value: "true"
           resources:
