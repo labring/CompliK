@@ -29,13 +29,12 @@ This repository adopts a **Monorepo + Multi-module** architecture, organizing th
 [➡️ Learn more](complik/README.md)
 
 ### 2. Block Controller
-**Kubernetes namespace lifecycle manager with resource blocking capabilities**
+**Kubernetes namespace block controller**
 
-- Custom Resource Definition (CRD) for batch namespace operations
-- Automatic workload scaling and resource quota management
-- Namespace expiration and cleanup handling
-- kubectl plugin for easy CLI access
-- High availability with leader election
+- Watches the namespace lock label `block.clawcloud.run/locked=true`
+- Applies default-deny NetworkPolicy and ResourceQuota rules
+- Cleans up blocking resources when the label is removed
+- Runs as a lightweight in-cluster controller
 
 [➡️ Learn more](block-controller/README.md)
 
@@ -105,25 +104,14 @@ CompliK/                                # Monorepo root directory
 │   ├── go.mod                          # Independent module
 │   │                                   # module: github.com/bearslyricattack/CompliK/block-controller
 │   ├── go.sum
-│   ├── cmd/                            # Entry programs
-│   │   ├── main.go                     # Controller main entry
-│   │   └── kubectl-block/              # kubectl plugin
-│   ├── api/v1/                         # CRD API definitions
+│   ├── cmd/                            # Entry program
+│   │   └── main.go                     # Controller main entry
 │   ├── internal/                       # Internal implementation
-│   │   ├── controller/                 # Controller logic
-│   │   ├── scanner/                    # Namespace scanner
-│   │   ├── constants/
-│   │   └── utils/
-│   ├── config/                         # Kubernetes configuration
-│   │   ├── crd/
-│   │   ├── default/
-│   │   ├── manager/
-│   │   └── rbac/
-│   ├── deploy/                         # Deployment manifests
+│   │   ├── config/                     # Controller configuration
+│   │   └── controller/                 # Namespace lock reconciler
+│   ├── deploy/                         # Kubernetes deployment manifests
 │   ├── Dockerfile                      # Docker image build
-│   ├── Makefile                        # Local build script
-│   └── bin/                            # Build artifacts
-│       └── manager
+│   └── README.md
 │
 └── procscan/                           # Sub-project 3: Process scanning tool
     ├── go.mod                          # Independent module
@@ -284,6 +272,8 @@ go build -o bin/manager cmd/complik/main.go
 cd block-controller
 go build -o bin/manager cmd/main.go
 ./bin/manager
+
+kubectl apply -f deploy/manifests/
 ```
 
 ### ProcScan
@@ -301,15 +291,20 @@ Although the three sub-projects are completely independent in code (no cross-ref
 ### Threat Response Workflow
 
 ```
-1. ProcScan detects a threat process
+1. CompliK or ProcScan detects a violation
    ↓
-   Labels the namespace: "block.clawcloud.run/locked=true"
+   Reports the violation to sealos-complik-admin
 
-2. Block Controller listens to label changes
+2. Admin stores the violation and evaluates autoban_policy
    ↓
-   Automatically blocks namespace (scale down, limit resources, isolate network)
+   Creates an audit ban record and labels the namespace:
+   "block.clawcloud.run/locked=true"
 
-3. CompliK collects security events
+3. Block Controller listens to label changes
+   ↓
+   Automatically blocks namespace (limit resources and isolate network)
+
+4. CompliK and ProcScan continue collecting security events
    ↓
    Sends alert notifications (Feishu, DingTalk, Email)
 ```
@@ -331,8 +326,8 @@ Although the three sub-projects are completely independent in code (no cross-ref
 │  ┌────────────────────────────────────┐ │
 │  │  block-controller (Deployment)     │ │
 │  │  Replicas: 1                       │ │
-│  │  - Listen to BlockRequest CRD      │ │
-│  │  - Namespace lifecycle management  │ │
+│  │  - Watch namespace lock labels     │ │
+│  │  - Enforce blocking resources      │ │
 │  └────────────────────────────────────┘ │
 │                                          │
 │  ┌────────────────────────────────────┐ │
@@ -563,7 +558,7 @@ Each component has comprehensive documentation:
 - **[CompliK Platform](complik/README.md)** - Plugin architecture, configuration, deployment
 - **[CompliK Logging](complik/docs/LOGGING.md)** - Advanced logging system documentation
 - **[CompliK Security](complik/docs/SECURITY.md)** - Security configuration guide
-- **[Block Controller](block-controller/README.md)** - CRD usage, kubectl plugin, architecture
+- **[Block Controller](block-controller/README.md)** - Namespace lock enforcement and architecture
 - **[ProcScan](procscan/README.md)** - Configuration, rules, deployment
 - **[ProcScan Metrics](procscan/docs/PROMETHEUS_METRICS.md)** - Complete metrics reference
 - **[Keyword Analyzer](analyze/README.md)** - Database setup, customization, troubleshooting

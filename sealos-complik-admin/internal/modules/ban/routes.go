@@ -7,11 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"sealos-complik-admin/internal/infra/config"
 	"sealos-complik-admin/internal/infra/database"
+	"sealos-complik-admin/internal/infra/k8s"
 	"sealos-complik-admin/internal/infra/oss"
 )
 
 // InitBanRoutes wires module dependencies and registers ban APIs.
-func InitBanRoutes(g *gin.Engine, cfg *config.Config) {
+func InitBanRoutes(g *gin.Engine, cfg *config.Config, locker k8s.NamespaceLocker) (*Service, error) {
 	repository := NewRepository(database.Get())
 
 	var uploader *oss.Client
@@ -24,7 +25,7 @@ func InitBanRoutes(g *gin.Engine, cfg *config.Config) {
 		}
 	}
 
-	service := NewService(repository, uploader, buildBanObjectPrefix(cfg))
+	service := NewService(repository, uploader, buildBanObjectPrefix(cfg), locker)
 	handler := NewHandler(service)
 
 	g.POST("/api/bans/upload", handler.UploadBan)
@@ -34,6 +35,8 @@ func InitBanRoutes(g *gin.Engine, cfg *config.Config) {
 	g.GET("/api/bans/:namespace", handler.GetBans)
 	g.GET("/api/bans", handler.ListBans)
 	g.GET("/api/namespaces/:namespace/ban-status", handler.GetBanStatus)
+
+	return service, nil
 }
 
 func buildBanObjectPrefix(cfg *config.Config) string {

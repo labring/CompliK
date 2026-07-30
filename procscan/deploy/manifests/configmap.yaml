@@ -14,7 +14,7 @@ data:
       label:
         enabled: false
         data:
-          clawcloud.run/status: "locked"
+          block.clawcloud.run/locked: "true"
 
     notifications:
       admin:

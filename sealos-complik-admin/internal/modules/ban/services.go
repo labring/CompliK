@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
+	"sealos-complik-admin/internal/infra/k8s"
 	"sealos-complik-admin/internal/modules/pagequery"
 )
 
@@ -28,13 +30,33 @@ const (
 )
 
 type Service struct {
-	repository *Repository
+	repository BanRepository
 	uploader   fileUploader
+	locker     k8s.NamespaceLocker
 	ossPrefix  string
 	now        func() time.Time
 }
 
-func NewService(repository *Repository, uploader fileUploader, ossPrefix string) *Service {
+type BanRepository interface {
+	CreateBan(ctx context.Context, ban *Ban) error
+	DeleteBanByID(ctx context.Context, id uint64) error
+	GetBansByNamespace(ctx context.Context, namespace string) ([]Ban, error)
+	ListBans(ctx context.Context) ([]Ban, error)
+	ListBansPage(
+		ctx context.Context,
+		options pagequery.Options,
+		keyword string,
+		operatorName string,
+	) ([]Ban, int64, error)
+	HasActiveBan(ctx context.Context, namespace string, now time.Time) (bool, error)
+}
+
+func NewService(
+	repository BanRepository,
+	uploader fileUploader,
+	ossPrefix string,
+	locker k8s.NamespaceLocker,
+) *Service {
 	normalizedPrefix := normalizeObjectPrefix(ossPrefix)
 	if normalizedPrefix == "" {
 		normalizedPrefix = defaultBanObjectPrefix
@@ -43,6 +65,7 @@ func NewService(repository *Repository, uploader fileUploader, ossPrefix string)
 	return &Service{
 		repository: repository,
 		uploader:   uploader,
+		locker:     locker,
 		ossPrefix:  normalizedPrefix,
 		now:        time.Now,
 	}
@@ -66,7 +89,7 @@ func (s *Service) createBan(
 	ctx context.Context,
 	req CreateBanRequest,
 	screenshots []*multipart.FileHeader,
-) error {
+) (err error) {
 	input, err := normalizeBanInput(
 		req.Namespace,
 		req.Reason,
@@ -98,8 +121,16 @@ func (s *Service) createBan(
 		OperatorName:   input.OperatorName,
 	}
 
-	if err := s.repository.CreateBan(ctx, ban); err != nil {
-		return translateRepositoryError(err)
+	if err = s.repository.CreateBan(ctx, ban); err != nil {
+		err = translateRepositoryError(err)
+		return err
+	}
+
+	if s.locker != nil {
+		if _, err = s.locker.EnsureLocked(ctx, input.Namespace); err != nil {
+			log.Printf("ban namespace label failed for %s: %v", input.Namespace, err)
+			return err
+		}
 	}
 
 	return nil

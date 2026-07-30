@@ -3,11 +3,15 @@ package router
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"sealos-complik-admin/internal/infra/config"
+	"sealos-complik-admin/internal/infra/database"
+	"sealos-complik-admin/internal/infra/k8s"
 	"sealos-complik-admin/internal/middleware"
+	"sealos-complik-admin/internal/modules/autoban"
 	"sealos-complik-admin/internal/modules/ban"
 	"sealos-complik-admin/internal/modules/commitment"
 	"sealos-complik-admin/internal/modules/complikviolation"
@@ -30,8 +34,16 @@ func InitRouter(cfg *config.Config) (*gin.Engine, error) {
 		g.Use(middleware.BasicAuth(cfg.Auth))
 	}
 
-	ban.InitBanRoutes(g, cfg)
-	complikviolation.InitRoutes(g)
+	locker := buildNamespaceLocker()
+
+	banService, err := ban.InitBanRoutes(g, cfg, locker)
+	if err != nil {
+		return nil, fmt.Errorf("init ban routes: %w", err)
+	}
+
+	autobanService := autoban.NewService(projectconfig.NewRepository(database.Get()), banService)
+
+	complikviolation.InitRoutes(g, autobanService)
 	discoveredpath.InitRoutes(g)
 
 	if err := commitment.InitCommitmentRoutes(g, cfg); err != nil {
@@ -39,10 +51,23 @@ func InitRouter(cfg *config.Config) (*gin.Engine, error) {
 	}
 
 	projectconfig.InitProjectConfigRoutes(g)
-	procscanviolation.InitRoutes(g)
-	unban.InitUnbanRoutes(g)
+	procscanviolation.InitRoutes(g, autobanService)
+
+	if _, err := unban.InitUnbanRoutes(g, locker); err != nil {
+		return nil, fmt.Errorf("init unban routes: %w", err)
+	}
 
 	return g, nil
+}
+
+func buildNamespaceLocker() k8s.NamespaceLocker {
+	locker, err := k8s.NewNamespaceLocker()
+	if err != nil {
+		log.Printf("namespace locker disabled: %v", err)
+		return k8s.NewNoopNamespaceLocker()
+	}
+
+	return locker
 }
 
 func HealthCheck(c *gin.Context) {

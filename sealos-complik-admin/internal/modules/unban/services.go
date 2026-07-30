@@ -3,9 +3,11 @@ package unban
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 
 	"gorm.io/gorm"
+	"sealos-complik-admin/internal/infra/k8s"
 	"sealos-complik-admin/internal/modules/pagequery"
 )
 
@@ -16,10 +18,11 @@ var (
 
 type Service struct {
 	repository *Repository
+	locker     k8s.NamespaceLocker
 }
 
-func NewService(repository *Repository) *Service {
-	return &Service{repository: repository}
+func NewService(repository *Repository, locker k8s.NamespaceLocker) *Service {
+	return &Service{repository: repository, locker: locker}
 }
 
 // CreateUnban creates a new unban record.
@@ -36,6 +39,17 @@ func (s *Service) CreateUnban(ctx context.Context, req CreateUnbanRequest) error
 
 	if err := s.repository.CreateUnban(ctx, record); err != nil {
 		return translateRepositoryError(err)
+	}
+
+	if s.locker != nil {
+		if _, err := s.locker.EnsureUnlocked(ctx, input.Namespace); err != nil {
+			log.Printf("unban unlock failed for namespace %s: %v", input.Namespace, err)
+			if rollbackErr := s.repository.DeleteUnbanByID(ctx, record.ID); rollbackErr != nil {
+				log.Printf("unban rollback failed for namespace %s: %v", input.Namespace, rollbackErr)
+			}
+
+			return err
+		}
 	}
 
 	return nil

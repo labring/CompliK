@@ -204,6 +204,31 @@ curl -X POST http://localhost:8080/api/configs \
   }'
 ```
 
+Enable autoban through project config:
+
+```bash
+curl -X POST http://localhost:8080/api/configs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_name": "autoban_policy",
+    "config_type": "autoban_policy",
+    "config_value": {
+      "enabled": true,
+      "dryRun": false,
+      "operatorName": "system/autoban",
+      "sources": {
+        "complik": { "enabled": true },
+        "procscan": { "enabled": true }
+      },
+      "namespaceDenylist": ["kube-system", "sealos", "block-system"]
+    },
+    "description": "Admin automatic namespace ban policy"
+  }'
+```
+
+Autoban is disabled and dry-run by default. When enabled, admin creates the ban
+record and patches the namespace label `block.clawcloud.run/locked=true`.
+
 Create a commitment:
 
 ```bash
@@ -442,6 +467,31 @@ curl -X POST http://localhost:8080/api/configs \
     "description": "Demo config"
   }'
 ```
+
+通过项目配置启用自动封禁：
+
+```bash
+curl -X POST http://localhost:8080/api/configs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "config_name": "autoban_policy",
+    "config_type": "autoban_policy",
+    "config_value": {
+      "enabled": true,
+      "dryRun": false,
+      "operatorName": "system/autoban",
+      "sources": {
+        "complik": { "enabled": true },
+        "procscan": { "enabled": true }
+      },
+      "namespaceDenylist": ["kube-system", "sealos", "block-system"]
+    },
+    "description": "Admin automatic namespace ban policy"
+  }'
+```
+
+自动封禁默认关闭并处于 dry-run。显式启用后，admin 会创建封禁记录，并给
+namespace 打上 `block.clawcloud.run/locked=true` 标签。
 
 创建承诺记录：
 

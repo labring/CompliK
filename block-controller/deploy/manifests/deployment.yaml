@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: block-controller
+  namespace: block-system
+  labels:
+    app.kubernetes.io/name: block-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: block-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: block-controller
+    spec:
+      serviceAccountName: block-controller
+      containers:
+        - name: controller
+          image: labring/complik-block-controller:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: BLOCK_CONTROLLER_LABEL_KEY
+              value: block.clawcloud.run/locked
+            - name: BLOCK_CONTROLLER_LABEL_VALUE
+              value: "true"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi

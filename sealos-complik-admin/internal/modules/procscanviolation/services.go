@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
+	"sealos-complik-admin/internal/modules/autoban"
 	"sealos-complik-admin/internal/modules/pagequery"
 	"sealos-complik-admin/internal/modules/violationquery"
 )
@@ -21,10 +23,11 @@ var (
 
 type Service struct {
 	repository *Repository
+	autoban    autoban.Handler
 }
 
-func NewService(repository *Repository) *Service {
-	return &Service{repository: repository}
+func NewService(repository *Repository, autobanHandler autoban.Handler) *Service {
+	return &Service{repository: repository, autoban: autobanHandler}
 }
 
 func (s *Service) CreateViolation(ctx context.Context, req CreateViolationRequest) error {
@@ -58,6 +61,27 @@ func (s *Service) CreateViolation(ctx context.Context, req CreateViolationReques
 
 	if err := s.repository.CreateViolation(ctx, violation); err != nil {
 		return translateRepositoryError(err)
+	}
+
+	if s.autoban != nil {
+		if err := s.autoban.HandleViolation(ctx, autoban.Violation{
+			Namespace:    violation.Namespace,
+			Source:       autoban.SourceProcscan,
+			DetectorName: violation.MatchRule,
+			Summary:      violation.Message,
+			Detail: strings.TrimSpace(strings.Join([]string{
+				"process_name=" + violation.ProcessName,
+				"process_command=" + violation.ProcessCommand,
+				"pod_name=" + violation.PodName,
+				"node_name=" + violation.NodeName,
+				"label_action_status=" + violation.LabelActionStatus,
+				"label_action_result=" + violation.LabelActionResult,
+			}, "\n")),
+			IsIllegal:  isEffectiveViolation(violation),
+			DetectedAt: violation.DetectedAt,
+		}); err != nil {
+			log.Printf("procscan autoban failed for %s: %v", violation.Namespace, err)
+		}
 	}
 
 	return nil

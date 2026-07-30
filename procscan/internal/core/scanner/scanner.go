@@ -340,7 +340,7 @@ func (s *Scanner) handleGroupedActions(
 		if s.k8sClient != nil {
 			labels := config.Actions.Label.Data
 			if len(labels) == 0 {
-				labels = map[string]string{"clawcloud.run/status": "locked"}
+				labels = map[string]string{"block.clawcloud.run/locked": "true"}
 			}
 
 			legacy.L.WithFields(logrus.Fields{
