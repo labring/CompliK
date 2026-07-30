@@ -33,6 +33,7 @@ func (f *fakeBanRepository) DeleteBanByID(ctx context.Context, id uint64) error 
 
 		filtered = append(filtered, ban)
 	}
+
 	f.created = filtered
 
 	return nil
