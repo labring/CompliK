@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - main
+      - "**"
     tags:
       - "v*.*.*"
     paths-ignore:
@@ -19,6 +19,7 @@ env:
   GHCR_PROCSCAN: ghcr.io/${{ github.repository_owner }}/procscan
   GHCR_ADMIN: ghcr.io/${{ github.repository_owner }}/sealos-complik-admin
   GHCR_ADMIN_WEB: ghcr.io/${{ github.repository_owner }}/sealos-complik-admin-web
+  GHCR_BLOCK_CONTROLLER: ghcr.io/${{ github.repository_owner }}/complik-block-controller
   GHCR_CLUSTER: ghcr.io/${{ github.repository_owner }}/cluster
 
 jobs:
@@ -27,6 +28,27 @@ jobs:
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
+
+  detect-block-controller:
+    name: Detect Block Controller
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      available: ${{ steps.detect.outputs.available }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - name: Detect image context
+        id: detect
+        run: |
+          if [ -f block-controller/Dockerfile ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
 
   build-complik:
     name: Build CompliK (${{ matrix.arch }})
@@ -199,6 +221,28 @@ jobs:
       context: sealos-complik-admin/web
       image: ghcr.io/${{ github.repository_owner }}/sealos-complik-admin-web
       artifact-name-prefix: digests-admin-web
+      arch: ${{ matrix.arch }}
+      runs-on: ${{ matrix.runs-on }}
+
+  build-block-controller:
+    name: Build Block Controller (${{ matrix.arch }})
+    needs: [ci, detect-block-controller]
+    if: ${{ needs.detect-block-controller.outputs.available == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runs-on: ubuntu-24.04
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+    uses: ./.github/workflows/build-image.yml
+    with:
+      context: block-controller
+      image: ghcr.io/${{ github.repository_owner }}/complik-block-controller
+      artifact-name-prefix: digests-block-controller
       arch: ${{ matrix.arch }}
       runs-on: ${{ matrix.runs-on }}
 
@@ -406,6 +450,56 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ env.GHCR_ADMIN_WEB }}:${{ steps.meta.outputs.version }}
+
+  release-block-controller:
+    name: Release Block Controller Image
+    permissions:
+      packages: write
+    needs: build-block-controller
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name != 'pull_request' && needs.build-block-controller.result == 'success' }}
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download digests
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-block-controller-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        with:
+          images: ${{ env.GHCR_BLOCK_CONTROLLER }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          for TAG in $DOCKER_METADATA_OUTPUT_TAGS; do
+            docker buildx imagetools create -t "$TAG" \
+              $(printf '${{ env.GHCR_BLOCK_CONTROLLER }}@sha256:%s ' *)
+          done
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.GHCR_BLOCK_CONTROLLER }}:${{ steps.meta.outputs.version }}
 
   release-sealos-image:
     name: Release Sealos Cluster Image
