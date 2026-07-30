@@ -98,6 +98,25 @@ export type ConfigRecord = {
   value: string;
 };
 
+export type AutobanPolicy = {
+  enabled: boolean;
+  dryRun: boolean;
+  operatorName: string;
+  reasonPrefix: string;
+  sources: {
+    complik: {
+      enabled: boolean;
+    };
+    procscan: {
+      enabled: boolean;
+    };
+  };
+  processNameAllowlist: string[];
+  processNameDenylist: string[];
+  namespaceAllowlist: string[];
+  namespaceDenylist: string[];
+};
+
 export type CommitmentRecord = {
   id: string;
   namespace: string;

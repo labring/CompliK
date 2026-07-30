@@ -6,6 +6,7 @@ import {
   FileText,
   LayoutGrid,
   Network,
+  ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
@@ -16,6 +17,7 @@ const navItems = [
   { label: "命名空间详情", path: "/namespaces", icon: ShieldCheck },
   { label: "入口路径", path: "/discovered-paths", icon: Network },
   { label: "违规中心", path: "/violations", icon: AlertTriangle },
+  { label: "自动封禁", path: "/autoban", icon: ShieldAlert },
   { label: "项目配置", path: "/configs", icon: FileCog },
   { label: "承诺书管理", path: "/commitments", icon: FileText },
   { label: "封禁记录", path: "/bans", icon: Ban },

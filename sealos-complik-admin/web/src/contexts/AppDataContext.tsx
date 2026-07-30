@@ -49,6 +49,11 @@ const quickLinks: QuickLinkItem[] = [
     targetPath: "/bans",
   },
   {
+    title: "配置自动封禁",
+    description: "维护自动封禁开关、触发来源和进程名规则。",
+    targetPath: "/autoban",
+  },
+  {
     title: "维护项目配置",
     description: "查看配置类型、描述和 JSON 内容。",
     targetPath: "/configs",

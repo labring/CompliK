@@ -1,5 +1,6 @@
 import { formatDateTime, toTimestamp } from "./utils";
 import type {
+  AutobanPolicy,
   BanRecord,
   CommitmentRecord,
   ConfigRecord,
@@ -19,6 +20,9 @@ import type {
   ViolationListQuery,
   ViolationRecord,
 } from "../types";
+
+export const AUTOBAN_POLICY_CONFIG_NAME = "autoban_policy";
+export const AUTOBAN_POLICY_CONFIG_TYPE = "autoban_policy";
 
 type ApiErrorPayload = {
   message?: string;
@@ -428,6 +432,11 @@ export async function listConfigRecords() {
   return data.map(toConfigRecord);
 }
 
+export async function listConfigRecordsByType(configType: string) {
+  const data = await request<ProjectConfigDto[]>(`/api/configs/type/${encodeURIComponent(configType)}`);
+  return data.map(toConfigRecord);
+}
+
 export async function listConfigRecordsPage(query: RecordListQuery): Promise<PaginatedRecords<ConfigRecord>> {
   const data = await request<PaginatedDto<ProjectConfigDto>>(`/api/configs?${buildRecordListParams(query).toString()}`);
   return toPaginatedRecords(data, toConfigRecord);
@@ -461,6 +470,22 @@ export async function updateConfigRecord(configName: string, input: UpdateConfig
       config_value: JSON.parse(input.value),
     }),
   });
+}
+
+export async function saveAutobanPolicy(policy: AutobanPolicy, existingConfigName?: string) {
+  const input = {
+    configName: AUTOBAN_POLICY_CONFIG_NAME,
+    configType: AUTOBAN_POLICY_CONFIG_TYPE,
+    description: "Admin automatic namespace ban policy",
+    value: JSON.stringify(policy),
+  };
+
+  if (existingConfigName) {
+    await updateConfigRecord(existingConfigName, input);
+    return;
+  }
+
+  await createConfigRecord(input);
 }
 
 export async function listCommitmentRecords() {
