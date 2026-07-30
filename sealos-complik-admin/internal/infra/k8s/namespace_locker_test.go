@@ -1,3 +1,4 @@
+//nolint:testpackage // Tests use unexported locker internals with a fake Kubernetes client.
 package k8s
 
 import (
@@ -20,14 +21,18 @@ func TestEnsureLockedPatchesNamespaceLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureLocked returned error: %v", err)
 	}
+
 	if !changed {
 		t.Fatal("expected namespace label to change")
 	}
 
-	namespace, err := client.CoreV1().Namespaces().Get(context.Background(), "demo", metav1.GetOptions{})
+	namespace, err := client.CoreV1().
+		Namespaces().
+		Get(context.Background(), "demo", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get namespace: %v", err)
 	}
+
 	if got := namespace.Labels[NamespaceLockLabelKey]; got != NamespaceLockLabelValue {
 		t.Fatalf("unexpected lock label: %q", got)
 	}
@@ -48,6 +53,7 @@ func TestEnsureLockedSkipsAlreadyLockedNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureLocked returned error: %v", err)
 	}
+
 	if changed {
 		t.Fatal("expected already locked namespace to be unchanged")
 	}
@@ -69,17 +75,22 @@ func TestEnsureUnlockedRemovesNamespaceLabel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureUnlocked returned error: %v", err)
 	}
+
 	if !changed {
 		t.Fatal("expected namespace label to change")
 	}
 
-	namespace, err := client.CoreV1().Namespaces().Get(context.Background(), "demo", metav1.GetOptions{})
+	namespace, err := client.CoreV1().
+		Namespaces().
+		Get(context.Background(), "demo", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("get namespace: %v", err)
 	}
+
 	if _, ok := namespace.Labels[NamespaceLockLabelKey]; ok {
 		t.Fatal("expected lock label to be removed")
 	}
+
 	if got := namespace.Labels["existing"]; got != "label" {
 		t.Fatalf("unexpected existing label: %q", got)
 	}
@@ -93,6 +104,7 @@ func TestEnsureUnlockedIgnoresMissingNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EnsureUnlocked returned error: %v", err)
 	}
+
 	if changed {
 		t.Fatal("expected missing namespace to be unchanged")
 	}

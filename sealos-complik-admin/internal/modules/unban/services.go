@@ -44,8 +44,13 @@ func (s *Service) CreateUnban(ctx context.Context, req CreateUnbanRequest) error
 	if s.locker != nil {
 		if _, err := s.locker.EnsureUnlocked(ctx, input.Namespace); err != nil {
 			log.Printf("unban unlock failed for namespace %s: %v", input.Namespace, err)
+
 			if rollbackErr := s.repository.DeleteUnbanByID(ctx, record.ID); rollbackErr != nil {
-				log.Printf("unban rollback failed for namespace %s: %v", input.Namespace, rollbackErr)
+				log.Printf(
+					"unban rollback failed for namespace %s: %v",
+					input.Namespace,
+					rollbackErr,
+				)
 			}
 
 			return err

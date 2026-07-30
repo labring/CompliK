@@ -59,23 +59,32 @@ func (l *namespaceLocker) EnsureUnlocked(ctx context.Context, namespace string) 
 	return l.ensureLabel(ctx, namespace, false)
 }
 
-func (l *namespaceLocker) ensureLabel(ctx context.Context, namespace string, lock bool) (bool, error) {
+func (l *namespaceLocker) ensureLabel(
+	ctx context.Context,
+	namespace string,
+	lock bool,
+) (bool, error) {
 	trimmedNamespace := strings.TrimSpace(namespace)
 	if trimmedNamespace == "" {
 		return false, errors.New("namespace is required")
 	}
 
 	changed := false
+
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		target, err := l.client.CoreV1().Namespaces().Get(ctx, trimmedNamespace, metav1.GetOptions{})
+		target, err := l.client.CoreV1().
+			Namespaces().
+			Get(ctx, trimmedNamespace, metav1.GetOptions{})
 		if err != nil {
 			if !lock && apierrors.IsNotFound(err) {
 				return nil
 			}
+
 			return err
 		}
 
 		target = target.DeepCopy()
+
 		labels := target.GetLabels()
 		if labels == nil {
 			labels = map[string]string{}
@@ -88,8 +97,10 @@ func (l *namespaceLocker) ensureLabel(ctx context.Context, namespace string, loc
 
 			labels[NamespaceLockLabelKey] = NamespaceLockLabelValue
 			target.SetLabels(labels)
+
 			changed = true
 			_, err = l.client.CoreV1().Namespaces().Update(ctx, target, metav1.UpdateOptions{})
+
 			return err
 		}
 
@@ -99,8 +110,10 @@ func (l *namespaceLocker) ensureLabel(ctx context.Context, namespace string, loc
 
 		delete(labels, NamespaceLockLabelKey)
 		target.SetLabels(labels)
+
 		changed = true
 		_, err = l.client.CoreV1().Namespaces().Update(ctx, target, metav1.UpdateOptions{})
+
 		return err
 	})
 	if err != nil {

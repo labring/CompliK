@@ -1,3 +1,4 @@
+//nolint:testpackage // Tests exercise unexported policy loading and service helpers.
 package autoban
 
 import (
@@ -30,7 +31,10 @@ func (f *fakeBanService) CreateBan(ctx context.Context, req ban.CreateBanRequest
 	return f.createErr
 }
 
-func (f *fakeBanService) GetBanStatus(ctx context.Context, namespace string) (*ban.BanStatusResponse, error) {
+func (f *fakeBanService) GetBanStatus(
+	ctx context.Context,
+	namespace string,
+) (*ban.BanStatusResponse, error) {
 	f.statusNamespaces = append(f.statusNamespaces, namespace)
 	if f.statusErr != nil {
 		return nil, f.statusErr
@@ -64,7 +68,7 @@ func TestHandleViolationCreatesBan(t *testing.T) {
 			"procscan": { "enabled": true }
 		}
 	}`), fake)
-	fixed := time.Date(2026, 7, 29, 8, 0, 0, 0, time.UTC)
+	fixed := time.Date(2026, time.July, 29, 8, 0, 0, 0, time.UTC)
 	svc.now = func() time.Time { return fixed }
 
 	err := svc.HandleViolation(context.Background(), Violation{
@@ -88,12 +92,15 @@ func TestHandleViolationCreatesBan(t *testing.T) {
 	if req.Namespace != "demo-ns" {
 		t.Fatalf("unexpected namespace: %q", req.Namespace)
 	}
+
 	if req.OperatorName != "system/autoban" {
 		t.Fatalf("unexpected operator name: %q", req.OperatorName)
 	}
+
 	if !req.BanStartTime.Equal(fixed) {
 		t.Fatalf("unexpected ban start time: %v", req.BanStartTime)
 	}
+
 	if got := req.Reason; !strings.Contains(got, "Admin auto-ban") ||
 		!strings.Contains(got, "procscan") ||
 		!strings.Contains(got, "suspicious command") {
@@ -126,9 +133,11 @@ func TestHandleViolationCreatesBanForComplik(t *testing.T) {
 	if len(fake.createReqs) != 1 {
 		t.Fatalf("expected 1 ban request, got %d", len(fake.createReqs))
 	}
+
 	if fake.createReqs[0].Namespace != "demo-ns" {
 		t.Fatalf("unexpected namespace: %q", fake.createReqs[0].Namespace)
 	}
+
 	if !strings.Contains(fake.createReqs[0].Reason, "complik") {
 		t.Fatalf("unexpected ban reason: %q", fake.createReqs[0].Reason)
 	}
@@ -151,6 +160,7 @@ func TestHandleViolationUsesConservativeDefaultPolicy(t *testing.T) {
 	if len(fake.statusNamespaces) != 0 {
 		t.Fatalf("expected no ban status checks, got %d", len(fake.statusNamespaces))
 	}
+
 	if len(fake.createReqs) != 0 {
 		t.Fatalf("expected no ban request, got %d", len(fake.createReqs))
 	}
@@ -179,6 +189,7 @@ func TestHandleViolationSkipsDryRunPolicy(t *testing.T) {
 	if len(fake.statusNamespaces) != 1 {
 		t.Fatalf("expected 1 ban status check, got %d", len(fake.statusNamespaces))
 	}
+
 	if len(fake.createReqs) != 0 {
 		t.Fatalf("expected no ban request, got %d", len(fake.createReqs))
 	}
@@ -291,6 +302,7 @@ func TestHandleViolationHonorsNamespacePolicy(t *testing.T) {
 	if len(fake.createReqs) != 1 {
 		t.Fatalf("expected 1 ban request, got %d", len(fake.createReqs))
 	}
+
 	if fake.createReqs[0].Namespace != "allowed" {
 		t.Fatalf("unexpected namespace: %q", fake.createReqs[0].Namespace)
 	}

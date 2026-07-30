@@ -12,7 +12,11 @@ import (
 )
 
 // InitBanRoutes wires module dependencies and registers ban APIs.
-func InitBanRoutes(g *gin.Engine, cfg *config.Config, locker k8s.NamespaceLocker) (*Service, error) {
+func InitBanRoutes(
+	g *gin.Engine,
+	cfg *config.Config,
+	locker k8s.NamespaceLocker,
+) (*Service, error) {
 	repository := NewRepository(database.Get())
 
 	var uploader *oss.Client

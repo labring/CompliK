@@ -1,3 +1,4 @@
+//nolint:testpackage // Tests set unexported service clock and inspect unexported model fields.
 package ban
 
 import (
@@ -62,7 +63,7 @@ func TestCreateBanKeepsRecordWhenLabelFails(t *testing.T) {
 	repo := &fakeBanRepository{}
 	locker := &failingNamespaceLocker{}
 	svc := NewService(repo, nil, "", locker)
-	svc.now = func() time.Time { return time.Date(2026, 7, 29, 8, 0, 0, 0, time.UTC) }
+	svc.now = func() time.Time { return time.Date(2026, time.July, 29, 8, 0, 0, 0, time.UTC) }
 
 	err := svc.CreateBan(context.Background(), CreateBanRequest{
 		Namespace:    "demo-ns",
@@ -73,12 +74,15 @@ func TestCreateBanKeepsRecordWhenLabelFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected label failure")
 	}
+
 	if !locker.called {
 		t.Fatal("expected namespace locker to be called")
 	}
+
 	if len(repo.created) != 1 {
 		t.Fatalf("expected ban record to be created, got %d", len(repo.created))
 	}
+
 	if repo.created[0].Namespace != "demo-ns" {
 		t.Fatalf("unexpected ban namespace: %q", repo.created[0].Namespace)
 	}

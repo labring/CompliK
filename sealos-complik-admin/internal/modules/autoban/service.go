@@ -58,7 +58,12 @@ func (s *Service) HandleViolation(ctx context.Context, violation Violation) erro
 	}
 
 	if policy.DryRun {
-		log.Printf("autoban: dry-run would ban namespace %s from %s", violation.Namespace, violation.Source)
+		log.Printf(
+			"autoban: dry-run would ban namespace %s from %s",
+			violation.Namespace,
+			violation.Source,
+		)
+
 		return nil
 	}
 

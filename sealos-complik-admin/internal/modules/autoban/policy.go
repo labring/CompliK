@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"slices"
 	"strings"
 
 	"sealos-complik-admin/internal/modules/projectconfig"
@@ -35,7 +36,10 @@ type SourceConfig struct {
 }
 
 type policyRepository interface {
-	ListProjectConfigsByType(ctx context.Context, configType string) ([]projectconfig.ProjectConfig, error)
+	ListProjectConfigsByType(
+		ctx context.Context,
+		configType string,
+	) ([]projectconfig.ProjectConfig, error)
 }
 
 func defaultPolicy() Policy {
@@ -214,23 +218,15 @@ func (p Policy) allowsNamespace(namespace string) bool {
 		return false
 	}
 
-	for _, blocked := range p.NamespaceDenylist {
-		if trimmedNamespace == blocked {
-			return false
-		}
+	if slices.Contains(p.NamespaceDenylist, trimmedNamespace) {
+		return false
 	}
 
 	if len(p.NamespaceAllowlist) == 0 {
 		return true
 	}
 
-	for _, allowed := range p.NamespaceAllowlist {
-		if trimmedNamespace == allowed {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(p.NamespaceAllowlist, trimmedNamespace)
 }
 
 func (p Policy) allowsSource(source Source) bool {
