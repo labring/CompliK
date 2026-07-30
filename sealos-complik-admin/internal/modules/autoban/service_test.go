@@ -24,6 +24,7 @@ type fakeBanService struct {
 type fakePolicyRepository struct {
 	configs []projectconfig.ProjectConfig
 	err     error
+	calls   int
 }
 
 func (f *fakeBanService) CreateBan(ctx context.Context, req ban.CreateBanRequest) error {
@@ -51,6 +52,7 @@ func (f *fakePolicyRepository) ListProjectConfigsByType(
 	ctx context.Context,
 	configType string,
 ) ([]projectconfig.ProjectConfig, error) {
+	f.calls++
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -247,17 +249,22 @@ func TestHandleViolationSkipsNonIllegalAndTestEvents(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := &fakeBanService{}
-			svc := NewService(policyRepo(`{
+			repo := policyRepo(`{
 				"enabled": true,
 				"dryRun": false,
 				"sources": {
 					"complik": { "enabled": true },
 					"procscan": { "enabled": true }
 				}
-			}`), fake)
+			}`)
+			svc := NewService(repo, fake)
 
 			if err := svc.HandleViolation(context.Background(), tc.violation); err != nil {
 				t.Fatalf("HandleViolation returned error: %v", err)
+			}
+
+			if repo.calls != 0 {
+				t.Fatalf("expected no policy load, got %d", repo.calls)
 			}
 
 			if len(fake.createReqs) != 0 {

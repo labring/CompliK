@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -85,6 +86,96 @@ func TestReconcileUnlockedNamespaceDeletesEnforcementResources(t *testing.T) {
 	)
 	if !apierrors.IsNotFound(err) {
 		t.Fatalf("expected resource quota to be deleted, got %v", err)
+	}
+}
+
+func TestEnsureNetworkPolicyRejectsUnmanagedResource(t *testing.T) {
+	cfg := testConfig()
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "demo",
+				Labels: map[string]string{
+					cfg.NamespaceLabelKey: cfg.NamespaceLabelValue,
+				},
+			},
+		},
+		&networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.NetworkPolicyName,
+				Namespace: "demo",
+			},
+		},
+	)
+	ctrl := New(client, cfg)
+
+	err := ctrl.ensureNetworkPolicy(context.Background(), "demo")
+	if err == nil || !strings.Contains(err.Error(), "not managed by block-controller") {
+		t.Fatalf("expected ownership error, got %v", err)
+	}
+}
+
+func TestDeleteNetworkPolicyRejectsUnmanagedResource(t *testing.T) {
+	cfg := testConfig()
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "demo"}},
+		&networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.NetworkPolicyName,
+				Namespace: "demo",
+			},
+		},
+	)
+	ctrl := New(client, cfg)
+
+	err := ctrl.deleteNetworkPolicy(context.Background(), "demo")
+	if err == nil || !strings.Contains(err.Error(), "not managed by block-controller") {
+		t.Fatalf("expected ownership error, got %v", err)
+	}
+}
+
+func TestEnsureResourceQuotaRejectsUnmanagedResource(t *testing.T) {
+	cfg := testConfig()
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "demo",
+				Labels: map[string]string{
+					cfg.NamespaceLabelKey: cfg.NamespaceLabelValue,
+				},
+			},
+		},
+		&corev1.ResourceQuota{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.ResourceQuotaName,
+				Namespace: "demo",
+			},
+		},
+	)
+	ctrl := New(client, cfg)
+
+	err := ctrl.ensureResourceQuota(context.Background(), "demo")
+	if err == nil || !strings.Contains(err.Error(), "not managed by block-controller") {
+		t.Fatalf("expected ownership error, got %v", err)
+	}
+}
+
+func TestDeleteResourceQuotaRejectsUnmanagedResource(t *testing.T) {
+	cfg := testConfig()
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "demo"}},
+		&corev1.ResourceQuota{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfg.ResourceQuotaName,
+				Namespace: "demo",
+			},
+		},
+	)
+	ctrl := New(client, cfg)
+
+	err := ctrl.deleteResourceQuota(context.Background(), "demo")
+	if err == nil || !strings.Contains(err.Error(), "not managed by block-controller") {
+		t.Fatalf("expected ownership error, got %v", err)
 	}
 }
 

@@ -129,6 +129,15 @@ func (s *Service) createBan(
 	if s.locker != nil {
 		if _, err = s.locker.EnsureLocked(ctx, input.Namespace); err != nil {
 			log.Printf("ban namespace label failed for %s: %v", input.Namespace, err)
+
+			if rollbackErr := s.repository.DeleteBanByID(ctx, ban.ID); rollbackErr != nil {
+				log.Printf(
+					"ban rollback failed for namespace %s: %v",
+					input.Namespace,
+					rollbackErr,
+				)
+			}
+
 			return err
 		}
 	}

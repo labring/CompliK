@@ -18,6 +18,11 @@ import (
 	"github.com/bearslyricattack/CompliK/block-controller/internal/config"
 )
 
+const (
+	managedResourceLabelKey   = "app.kubernetes.io/name"
+	managedResourceLabelValue = "block-controller"
+)
+
 type Controller struct {
 	client kubernetes.Interface
 	cfg    config.Config
@@ -165,6 +170,10 @@ func (c *Controller) ensureNetworkPolicy(ctx context.Context, namespace string) 
 		return err
 	}
 
+	if err := requireManagedResource("NetworkPolicy", namespace, desired.Name, current.Labels); err != nil {
+		return err
+	}
+
 	current.Spec = desired.Spec
 	current.Labels = desired.Labels
 	_, err = c.client.NetworkingV1().NetworkPolicies(namespace).Update(ctx, current, metav1.UpdateOptions{})
@@ -172,7 +181,20 @@ func (c *Controller) ensureNetworkPolicy(ctx context.Context, namespace string) 
 }
 
 func (c *Controller) deleteNetworkPolicy(ctx context.Context, namespace string) error {
-	err := c.client.NetworkingV1().NetworkPolicies(namespace).Delete(ctx, c.cfg.NetworkPolicyName, metav1.DeleteOptions{})
+	current, err := c.client.NetworkingV1().NetworkPolicies(namespace).Get(ctx, c.cfg.NetworkPolicyName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	if err := requireManagedResource("NetworkPolicy", namespace, c.cfg.NetworkPolicyName, current.Labels); err != nil {
+		return err
+	}
+
+	err = c.client.NetworkingV1().NetworkPolicies(namespace).Delete(ctx, c.cfg.NetworkPolicyName, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -192,6 +214,10 @@ func (c *Controller) ensureResourceQuota(ctx context.Context, namespace string) 
 		return err
 	}
 
+	if err := requireManagedResource("ResourceQuota", namespace, desired.Name, current.Labels); err != nil {
+		return err
+	}
+
 	current.Spec = desired.Spec
 	current.Labels = desired.Labels
 	_, err = c.client.CoreV1().ResourceQuotas(namespace).Update(ctx, current, metav1.UpdateOptions{})
@@ -199,7 +225,20 @@ func (c *Controller) ensureResourceQuota(ctx context.Context, namespace string) 
 }
 
 func (c *Controller) deleteResourceQuota(ctx context.Context, namespace string) error {
-	err := c.client.CoreV1().ResourceQuotas(namespace).Delete(ctx, c.cfg.ResourceQuotaName, metav1.DeleteOptions{})
+	current, err := c.client.CoreV1().ResourceQuotas(namespace).Get(ctx, c.cfg.ResourceQuotaName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	if err := requireManagedResource("ResourceQuota", namespace, c.cfg.ResourceQuotaName, current.Labels); err != nil {
+		return err
+	}
+
+	err = c.client.CoreV1().ResourceQuotas(namespace).Delete(ctx, c.cfg.ResourceQuotaName, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -242,4 +281,12 @@ func lockedResourceQuota(namespace, name string) *corev1.ResourceQuota {
 			},
 		},
 	}
+}
+
+func requireManagedResource(kind, namespace, name string, labels map[string]string) error {
+	if labels[managedResourceLabelKey] == managedResourceLabelValue {
+		return nil
+	}
+
+	return fmt.Errorf("%s %s/%s is not managed by block-controller", kind, namespace, name)
 }

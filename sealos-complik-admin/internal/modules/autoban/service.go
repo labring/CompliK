@@ -38,8 +38,12 @@ func (s *Service) HandleViolation(ctx context.Context, violation Violation) erro
 		return nil
 	}
 
+	if !violation.IsIllegal || violation.IsTest {
+		return nil
+	}
+
 	policy := loadPolicy(ctx, s.policyRepository)
-	if !policy.Enabled || !violation.IsIllegal || violation.IsTest {
+	if !policy.Enabled {
 		return nil
 	}
 

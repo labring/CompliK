@@ -12,7 +12,8 @@ import (
 )
 
 type fakeBanRepository struct {
-	created []*Ban
+	created    []*Ban
+	deletedIDs []uint64
 }
 
 func (f *fakeBanRepository) CreateBan(ctx context.Context, ban *Ban) error {
@@ -21,7 +22,19 @@ func (f *fakeBanRepository) CreateBan(ctx context.Context, ban *Ban) error {
 	return nil
 }
 
-func (f *fakeBanRepository) DeleteBanByID(context.Context, uint64) error {
+func (f *fakeBanRepository) DeleteBanByID(ctx context.Context, id uint64) error {
+	f.deletedIDs = append(f.deletedIDs, id)
+
+	filtered := f.created[:0]
+	for _, ban := range f.created {
+		if ban.ID == id {
+			continue
+		}
+
+		filtered = append(filtered, ban)
+	}
+	f.created = filtered
+
 	return nil
 }
 
@@ -59,7 +72,7 @@ func (l *failingNamespaceLocker) EnsureUnlocked(context.Context, string) (bool, 
 	return false, nil
 }
 
-func TestCreateBanKeepsRecordWhenLabelFails(t *testing.T) {
+func TestCreateBanRollsBackRecordWhenLabelFails(t *testing.T) {
 	repo := &fakeBanRepository{}
 	locker := &failingNamespaceLocker{}
 	svc := NewService(repo, nil, "", locker)
@@ -79,12 +92,16 @@ func TestCreateBanKeepsRecordWhenLabelFails(t *testing.T) {
 		t.Fatal("expected namespace locker to be called")
 	}
 
-	if len(repo.created) != 1 {
-		t.Fatalf("expected ban record to be created, got %d", len(repo.created))
+	if len(repo.created) != 0 {
+		t.Fatalf("expected ban record to be rolled back, got %d", len(repo.created))
 	}
 
-	if repo.created[0].Namespace != "demo-ns" {
-		t.Fatalf("unexpected ban namespace: %q", repo.created[0].Namespace)
+	if len(repo.deletedIDs) != 1 {
+		t.Fatalf("expected 1 rollback delete, got %d", len(repo.deletedIDs))
+	}
+
+	if repo.deletedIDs[0] != 1 {
+		t.Fatalf("unexpected rollback delete id: %d", repo.deletedIDs[0])
 	}
 }
 
