@@ -145,6 +145,60 @@ func TestHandleViolationCreatesBanForComplik(t *testing.T) {
 	}
 }
 
+func TestHandleViolationHonorsProcessNamePolicy(t *testing.T) {
+	fake := &fakeBanService{}
+	svc := NewService(policyRepo(`{
+		"enabled": true,
+		"dryRun": false,
+		"sources": {
+			"procscan": { "enabled": true }
+		},
+		"processNameAllowlist": ["xmrig"],
+		"processNameDenylist": ["systemd"]
+	}`), fake)
+
+	err := svc.HandleViolation(context.Background(), Violation{
+		Namespace:    "demo-ns",
+		Source:       SourceProcscan,
+		ProcessName:  "xmrig",
+		DetectorName: "miner-rule",
+		IsIllegal:    true,
+	})
+	if err != nil {
+		t.Fatalf("HandleViolation returned error: %v", err)
+	}
+
+	err = svc.HandleViolation(context.Background(), Violation{
+		Namespace:    "demo-ns",
+		Source:       SourceProcscan,
+		ProcessName:  "nginx",
+		DetectorName: "web-rule",
+		IsIllegal:    true,
+	})
+	if err != nil {
+		t.Fatalf("HandleViolation returned error: %v", err)
+	}
+
+	err = svc.HandleViolation(context.Background(), Violation{
+		Namespace:    "demo-ns",
+		Source:       SourceProcscan,
+		ProcessName:  "systemd",
+		DetectorName: "system-rule",
+		IsIllegal:    true,
+	})
+	if err != nil {
+		t.Fatalf("HandleViolation returned error: %v", err)
+	}
+
+	if len(fake.createReqs) != 1 {
+		t.Fatalf("expected 1 ban request, got %d", len(fake.createReqs))
+	}
+
+	if len(fake.statusNamespaces) != 1 {
+		t.Fatalf("expected 1 ban status check, got %d", len(fake.statusNamespaces))
+	}
+}
+
 func TestHandleViolationUsesConservativeDefaultPolicy(t *testing.T) {
 	fake := &fakeBanService{}
 	svc := NewService(nil, fake)

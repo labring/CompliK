@@ -68,6 +68,7 @@ func (s *Service) CreateViolation(ctx context.Context, req CreateViolationReques
 			Namespace:    violation.Namespace,
 			Source:       autoban.SourceProcscan,
 			DetectorName: violation.MatchRule,
+			ProcessName:  violation.ProcessName,
 			Summary:      violation.Message,
 			Detail: strings.TrimSpace(strings.Join([]string{
 				"process_name=" + violation.ProcessName,

@@ -17,13 +17,15 @@ const (
 )
 
 type Policy struct {
-	Enabled            bool
-	DryRun             bool
-	OperatorName       string
-	ReasonPrefix       string
-	NamespaceAllowlist []string
-	NamespaceDenylist  []string
-	Sources            SourcePolicy
+	Enabled              bool
+	DryRun               bool
+	OperatorName         string
+	ReasonPrefix         string
+	ProcessNameAllowlist []string
+	ProcessNameDenylist  []string
+	NamespaceAllowlist   []string
+	NamespaceDenylist    []string
+	Sources              SourcePolicy
 }
 
 type SourcePolicy struct {
@@ -79,18 +81,22 @@ func loadPolicy(ctx context.Context, repository policyRepository) Policy {
 }
 
 type rawPolicy struct {
-	Enabled                 *bool        `json:"enabled"`
-	DryRun                  *bool        `json:"dryRun"`
-	DryRunSnake             *bool        `json:"dry_run"`
-	OperatorName            string       `json:"operatorName"`
-	OperatorNameSnake       string       `json:"operator_name"`
-	ReasonPrefix            string       `json:"reasonPrefix"`
-	ReasonPrefixSnake       string       `json:"reason_prefix"`
-	NamespaceAllowlist      []string     `json:"namespaceAllowlist"`
-	NamespaceAllowlistSnake []string     `json:"namespace_allowlist"`
-	NamespaceDenylist       []string     `json:"namespaceDenylist"`
-	NamespaceDenylistSnake  []string     `json:"namespace_denylist"`
-	Sources                 SourcePolicy `json:"sources"`
+	Enabled                   *bool        `json:"enabled"`
+	DryRun                    *bool        `json:"dryRun"`
+	DryRunSnake               *bool        `json:"dry_run"`
+	OperatorName              string       `json:"operatorName"`
+	OperatorNameSnake         string       `json:"operator_name"`
+	ReasonPrefix              string       `json:"reasonPrefix"`
+	ReasonPrefixSnake         string       `json:"reason_prefix"`
+	ProcessNameAllowlist      []string     `json:"processNameAllowlist"`
+	ProcessNameAllowlistSnake []string     `json:"process_name_allowlist"`
+	ProcessNameDenylist       []string     `json:"processNameDenylist"`
+	ProcessNameDenylistSnake  []string     `json:"process_name_denylist"`
+	NamespaceAllowlist        []string     `json:"namespaceAllowlist"`
+	NamespaceAllowlistSnake   []string     `json:"namespace_allowlist"`
+	NamespaceDenylist         []string     `json:"namespaceDenylist"`
+	NamespaceDenylistSnake    []string     `json:"namespace_denylist"`
+	Sources                   SourcePolicy `json:"sources"`
 }
 
 func decodePolicy(data []byte, policy *Policy) error {
@@ -119,6 +125,18 @@ func decodePolicy(data []byte, policy *Policy) error {
 		policy.ReasonPrefix = raw.ReasonPrefix
 	} else if raw.ReasonPrefixSnake != "" {
 		policy.ReasonPrefix = raw.ReasonPrefixSnake
+	}
+
+	if len(raw.ProcessNameAllowlist) > 0 {
+		policy.ProcessNameAllowlist = raw.ProcessNameAllowlist
+	} else if len(raw.ProcessNameAllowlistSnake) > 0 {
+		policy.ProcessNameAllowlist = raw.ProcessNameAllowlistSnake
+	}
+
+	if len(raw.ProcessNameDenylist) > 0 {
+		policy.ProcessNameDenylist = raw.ProcessNameDenylist
+	} else if len(raw.ProcessNameDenylistSnake) > 0 {
+		policy.ProcessNameDenylist = raw.ProcessNameDenylistSnake
 	}
 
 	if len(raw.NamespaceAllowlist) > 0 {
@@ -188,6 +206,8 @@ func normalizePolicy(policy *Policy) {
 		policy.ReasonPrefix = defaultReasonPrefix
 	}
 
+	policy.ProcessNameAllowlist = trimStrings(policy.ProcessNameAllowlist)
+	policy.ProcessNameDenylist = trimStrings(policy.ProcessNameDenylist)
 	policy.NamespaceAllowlist = trimStrings(policy.NamespaceAllowlist)
 	policy.NamespaceDenylist = trimStrings(policy.NamespaceDenylist)
 }
@@ -227,6 +247,23 @@ func (p Policy) allowsNamespace(namespace string) bool {
 	}
 
 	return slices.Contains(p.NamespaceAllowlist, trimmedNamespace)
+}
+
+func (p Policy) allowsProcessName(processName string) bool {
+	trimmedProcessName := strings.TrimSpace(processName)
+	if trimmedProcessName == "" {
+		return true
+	}
+
+	if slices.Contains(p.ProcessNameDenylist, trimmedProcessName) {
+		return false
+	}
+
+	if len(p.ProcessNameAllowlist) == 0 {
+		return true
+	}
+
+	return slices.Contains(p.ProcessNameAllowlist, trimmedProcessName)
 }
 
 func (p Policy) allowsSource(source Source) bool {

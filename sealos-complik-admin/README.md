@@ -220,6 +220,7 @@ curl -X POST http://localhost:8080/api/configs \
         "complik": { "enabled": true },
         "procscan": { "enabled": true }
       },
+      "processNameAllowlist": ["xmrig", "minerd"],
       "namespaceDenylist": ["kube-system", "sealos", "block-system"]
     },
     "description": "Admin automatic namespace ban policy"
@@ -228,6 +229,9 @@ curl -X POST http://localhost:8080/api/configs \
 
 Autoban is disabled and dry-run by default. When enabled, admin creates the ban
 record and patches the namespace label `block.sealos.io/locked=true`.
+Process-name rules apply to violations that carry `process_name`, which
+currently comes from procscan. Use `processNameDenylist` to exempt specific
+process names; denylist entries win over allowlist entries.
 
 Create a commitment:
 
@@ -484,6 +488,7 @@ curl -X POST http://localhost:8080/api/configs \
         "complik": { "enabled": true },
         "procscan": { "enabled": true }
       },
+      "processNameAllowlist": ["xmrig", "minerd"],
       "namespaceDenylist": ["kube-system", "sealos", "block-system"]
     },
     "description": "Admin automatic namespace ban policy"
@@ -492,6 +497,8 @@ curl -X POST http://localhost:8080/api/configs \
 
 自动封禁默认关闭并处于 dry-run。显式启用后，admin 会创建封禁记录，并给
 namespace 打上 `block.sealos.io/locked=true` 标签。
+进程名规则只作用于带有 `process_name` 的违规事件，目前这来自 procscan。
+可用 `processNameDenylist` 豁免指定进程名；denylist 优先级高于 allowlist。
 
 创建承诺记录：
 

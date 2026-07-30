@@ -51,6 +51,11 @@ func (s *Service) HandleViolation(ctx context.Context, violation Violation) erro
 		return nil
 	}
 
+	if processName := strings.TrimSpace(violation.ProcessName); processName != "" &&
+		!policy.allowsProcessName(processName) {
+		return nil
+	}
+
 	status, err := s.banService.GetBanStatus(ctx, strings.TrimSpace(violation.Namespace))
 	if err != nil {
 		log.Printf("autoban: failed to check active ban for %s: %v", violation.Namespace, err)
